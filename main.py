@@ -15,8 +15,10 @@ async def updates(update: Update):
         
 
     # --- دستور بن فقط توسط ادمین ---
-        await update.reply(bot.get_group_admin_members(update.object_guid))
-    print(update.object_guid)
+        # await update.reply(bot.get_group_admin_members(update.object_guid))
+    if re.search(r'اسم جدید', text, re.IGNORECASE):
+    
+        await bot.edit_group_info(update.object_guid,text[8:])
 
 
 bot.run()

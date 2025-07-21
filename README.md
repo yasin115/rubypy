@@ -5,4 +5,4 @@
 <li>add remove user command</li>
 <li>add manual warn</li>
 <li>add wellcome and manual wellcome</li>
-<li>/</li>
+<li>clean all message in group</li>

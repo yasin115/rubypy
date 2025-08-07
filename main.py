@@ -1,4 +1,5 @@
 
+
 from random import randint
 from rubpy import Client, filters
 from rubpy.types import Update
@@ -34,7 +35,7 @@ bot = Client(name='rubpy')
 async def updates(update: Update ):
     text = update.message.text
     name = await update.get_author(update.object_guid)
-    
+
     import random
     cursor.execute("SELECT title FROM titles WHERE user_guid = ?", (update.author_object_guid,))
     result = cursor.fetchone() or [None]
@@ -85,7 +86,7 @@ async def updates(update: Update ):
 ]
 
     all_challenges = truth_challenges + dare_challenges
-    
+
 # تابع هندلر برای استفاده در بات rubpy
     if "چالش حقیقت"  == text:
         challenge = random.choice(truth_challenges)
@@ -96,7 +97,7 @@ async def updates(update: Update ):
     elif "چالش"  == text:
         challenge = random.choice(all_challenges)
         await update.reply(challenge)
-     
+
 
 
 
@@ -106,10 +107,12 @@ async def updates(update: Update ):
     if update.message.text == "یک عضو گروه را ترک کرد." and update.message.type != "Text":
         await update.reply("درم ببند." )
 
-
+    
     # check admin
-    if await update.is_admin(update.object_guid,update.user_guid):
-
+    admin_or_not = await bot.user_is_admin(update.object_guid,update.author_object_guid)
+    
+    if admin_or_not:
+    
         # pin message
         if 'پین' == text or 'pin' == text or text == "سنجاق":
             await update.pin(update.object_guid,update.message.reply_to_message_id)
@@ -125,22 +128,45 @@ async def updates(update: Update ):
                 await update.reply(text)
 
                 # await update.reply(f"{name.chat.last_message.author_title} بن شد.")
- 
+
 
         # join group
         #anti link
+    else:
+        if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE):
+            await update.reply(' اخطار‍ ' 
+                                        + str(name.chat.last_message.author_title)
+                                        )
+                                       
+            await update.delete()
+
+        
 
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
-        if update.reply_message_id and text.startswith("لقب"):
+        if update.reply_message_id and text.startswith("تنظیم لقب"):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
-            title = text.replace("لقب", "").strip()
+            title = text.replace("تنظیم لقب", "").strip()
 
             # ثبت یا آپدیت در دیتابیس
             cursor.execute("REPLACE INTO titles (user_guid, title) VALUES (?, ?)", (target_guid, title))
             conn.commit()
 
             await update.reply(f"لقب جدید ثبت شد: {title} برای {target.user.first_name}")
+    # بررسی لقب با ریپلای
+    if update.reply_message_id and text == "لقبش چیه":
+        target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
+        target_guid = target.user.user_guid
+        target_name = target.user.first_name or "کاربر"
+
+        # دریافت لقب از دیتابیس
+        cursor.execute("SELECT title FROM titles WHERE user_guid = ?", (target_guid,))
+        result = cursor.fetchone()
+
+        if result:
+            await update.reply(f" {result[0]}")
+        else:
+            await update.reply(f"ℹ️ برای {target_name} لقبی ثبت نشده.")
 
     if text == "لقب من":
         if result:
@@ -148,15 +174,15 @@ async def updates(update: Update ):
         else:
             await update.reply("برای شما لقبی ثبت نشده.")
 
-    ping_msg = ["مامان منو ندیدین","چقدر صدام میکنی یارو","نفس","بابای منو ندیدین","بگو کار دارم"]
+    ping_msg = ["مامان منو ندیدین","چقدر صدام میکنی یارو","نفس","خواهش کن جوابتو بدم",f"جون دلم {result[0]}","بگو کار دارم"]
     #super admin
     if True:
         if text == "ping" or text == "ربات" or text == "پینگ":
             if result[0]:
                 await update.reply(f"جوونم {result[0]}")
             else:
-                a = randint(0,4)
-                await update.reply(ping_msg[a])
+                a = randint(0,5)
+                await update.reply(ping_msg[4])
                 #await update.reply(str(update))
         hi_msg =["سلام زیبا","های","بخواب بچه","سلام دختری؟","دیر اومدی داریم میبندیم"]
         if text == "سلام" or text == "سلامم":
@@ -172,7 +198,8 @@ async def updates(update: Update ):
             filter = data.group.count_members
             await bot.send_message("u0Gfirp0efb1e13736a9714fe315f443",str(filter))
 
-  
+    if text == "بای" or text == "فعلا":
+        await update.reply("میری؟ بیا اینم با خودت ببر.")
     #help 
     if text == "راهنما":
         await update.reply("""
@@ -188,33 +215,5 @@ async def updates(update: Update ):
                     
  ربات رو باید ادمین کنید تا کار کنه در غیر اینصورت کار نخواهد کرد
                      """)
-    if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE):
-        user_guid = update.user_guid
-        author_info = await update.get_author(update.author_object_guid)
-        username = author_info.chat.last_message.author_title or "کاربر"
-        
-
-        # دریافت تعداد اخطار فعلی
-        cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (user_guid,))
-        row = cursor.fetchone()
-
-        if row:
-            warning_count = row[0] + 1
-            cursor.execute("UPDATE warnings SET count = ? WHERE user_guid = ?", (warning_count, user_guid))
-        else:
-            warning_count = 1
-            cursor.execute("INSERT INTO warnings (user_guid, count) VALUES (?, ?)", (user_guid, warning_count))
-
-        conn.commit()
-
-        # حذف پیام و اعلام اخطار
-        await update.reply(f"❌ اخطار {warning_count}/3 به {username} به دلیل ارسال لینک")
-        await update.delete()
-
-        # اگر بیشتر از ۳ بار شد → بن
-        if warning_count >= 3:
-            await update.ban_member(update.object_guid, update.user_guid)
-            await update.reply(f"🚫 {username} به دلیل ۳ بار تخلف، بن شد.")
 
 bot.run()
-

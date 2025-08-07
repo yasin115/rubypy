@@ -129,18 +129,61 @@ async def updates(update: Update ):
 
                 # await update.reply(f"{name.chat.last_message.author_title} بن شد.")
 
+    if update.reply_message_id and text == "حذف اخطار":
+            target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
+            target_guid = target.user.user_guid
+            target_name = target.user.first_name or "کاربر"
+            
+            # بررسی وجود اخطار
+            cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (target_guid,))
+            row = cursor.fetchone()
+
+            if row and row[0] > 0:
+                new_count = row[0] - 1
+                if new_count == 0:
+                    cursor.execute("DELETE FROM warnings WHERE user_guid = ?", (target_guid,))
+                else:
+                    cursor.execute("UPDATE warnings SET count = ? WHERE user_guid = ?", (new_count, target_guid))
+                conn.commit()
+                await update.reply(f"✅ یک اخطار از {target_name} حذف شد. اخطار فعلی: {new_count}/3")
+            else:
+                await update.reply(f"ℹ️ {target_name} هیچ اخطاری ندارد.")
 
         # join group
         #anti link
     else:
-        if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE):
-            await update.reply(' اخطار‍ ' 
-                                        + str(name.chat.last_message.author_title)
-                                        )
-                                       
-            await update.delete()
+     if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE):
+        user_guid = update.author_guid
+        author_info = await update.get_author(update.object_guid)
+        username = author_info.chat.last_message.author_title or "کاربر"
+        print(username)
 
-        
+        # دریافت تعداد اخطار فعلی
+        cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (user_guid,))
+        row = cursor.fetchone()
+
+        if row:
+            warning_count = row[0] + 1
+            cursor.execute("UPDATE warnings SET count = ? WHERE user_guid = ?", (warning_count, user_guid))
+        else:
+            warning_count = 1
+            cursor.execute("INSERT INTO warnings (user_guid, count) VALUES (?, ?)", (user_guid, warning_count))
+
+        conn.commit()
+
+        await update.reply(f"❌ اخطار {warning_count}/3 به {username} به دلیل ارسال لینک")
+        await update.delete()
+
+        # اگر بیشتر از یا مساوی ۳ اخطار شد → بن
+        if warning_count >= 3:
+            try:
+                await update.ban_member(update.object_guid, update.author_guid)
+                await update.reply(f"🚫 {username} به دلیل ۳ بار تخلف، بن شد.")
+            except Exception as e:
+                await update.reply(f"❗️خطا در بن کردن {username}: {str(e)}")
+
+    # کاهش یک اخطار توسط ادمین با ریپلای
+ 
 
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
         if update.reply_message_id and text.startswith("تنظیم لقب"):

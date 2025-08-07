@@ -13,11 +13,23 @@ cursor = conn.cursor()
 # ایجاد جدول لقب‌ها اگر وجود نداشت
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS titles (
-    user_guid TEXT PRIMARY KEY,
-    title TEXT
+    user_guid TEXT,
+    chat_guid TEXT,
+    title TEXT,
+    PRIMARY KEY (user_guid, chat_guid)
 )
 """)
 
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS stats (
+    user_guid TEXT,
+    chat_guid TEXT,
+    name TEXT,
+    message_count INTEGER,
+    PRIMARY KEY (user_guid, chat_guid)
+)
+""")
 
 # جدول اخطار کاربران
 cursor.execute("""
@@ -35,6 +47,25 @@ bot = Client(name='rubpy')
 async def updates(update: Update ):
     text = update.message.text
     name = await update.get_author(update.object_guid)
+    # ثبت یا افزایش شمارش پیام برای کاربر
+    user_guid = update.author_guid
+    
+    user_name = name.chat.last_message.author_title or "کاربر"
+
+    chat_guid = update.object_guid  # شناسه گروه
+
+
+    cursor.execute("SELECT message_count FROM stats WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+    row = cursor.fetchone()
+
+    if row:
+        new_count = row[0] + 1
+        cursor.execute("UPDATE stats SET message_count = ?, name = ? WHERE user_guid = ? AND chat_guid = ?", (new_count, user_name, user_guid, chat_guid))
+    else:
+        cursor.execute("INSERT INTO stats (user_guid, chat_guid, name, message_count) VALUES (?, ?, ?, ?)", (user_guid, chat_guid, user_name, 1))
+
+    conn.commit()
+
 
     import random
     cursor.execute("SELECT title FROM titles WHERE user_guid = ?", (update.author_object_guid,))
@@ -100,6 +131,19 @@ async def updates(update: Update ):
 
 
 
+    if text == "آمار من":
+        # گرفتن تعداد پیام‌ها فقط در این گروه
+        cursor.execute("SELECT message_count FROM stats WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+        msg_row = cursor.fetchone()
+
+        # گرفتن لقب در همین گروه
+        cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+        title_row = cursor.fetchone()
+
+        msg_count = msg_row[0] if msg_row else 0
+        title = title_row[0] if title_row else "ثبت نشده"
+
+        await update.reply(f"📊 آمار شما:\nپیام‌ها: {msg_count}\nلقب: {title}")
 
     # wellcome
     if update.message.text == "یک عضو از طریق لینک به گروه افزوده شد." and update.message.type != "Text":
@@ -112,7 +156,18 @@ async def updates(update: Update ):
     admin_or_not = await bot.user_is_admin(update.object_guid,update.author_object_guid)
     
     if admin_or_not:
-    
+        if text == "آمار کلی":
+            cursor.execute("SELECT name, message_count FROM stats WHERE chat_guid = ? ORDER BY message_count DESC LIMIT 7", (chat_guid,))
+            top_users = cursor.fetchall()
+
+            if top_users:
+                msg = "🏆 آمار ۷ نفر اول در این گروه:\n"
+                for i, (name, count) in enumerate(top_users, start=1):
+                    msg += f"{i}. {name} → {count} پیام\n"
+                await update.reply(msg)
+            else:
+                await update.reply("هیچ آماری ثبت نشده.")
+
         # pin message
         if 'پین' == text or 'pin' == text or text == "سنجاق":
             await update.pin(update.object_guid,update.message.reply_to_message_id)
@@ -192,7 +247,7 @@ async def updates(update: Update ):
             title = text.replace("تنظیم لقب", "").strip()
 
             # ثبت یا آپدیت در دیتابیس
-            cursor.execute("REPLACE INTO titles (user_guid, title) VALUES (?, ?)", (target_guid, title))
+            cursor.execute("REPLACE INTO titles (user_guid,chat_guid, title) VALUES (?, ?, ?)", (target_guid, chat_guid,title))
             conn.commit()
 
             await update.reply(f"لقب جدید ثبت شد: {title} برای {target.user.first_name}")

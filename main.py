@@ -1,5 +1,3 @@
-
-
 from random import randint
 from rubpy import Client, filters
 from rubpy.types import Update
@@ -20,6 +18,12 @@ CREATE TABLE IF NOT EXISTS titles (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS group_info (
+    chat_guid TEXT PRIMARY KEY,
+    owner_guid TEXT
+)
+""")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS stats (
@@ -49,7 +53,7 @@ async def updates(update: Update ):
     name = await update.get_author(update.object_guid)
     # ثبت یا افزایش شمارش پیام برای کاربر
     user_guid = update.author_guid
-    
+
     user_name = name.chat.last_message.author_title or "کاربر"
 
     chat_guid = update.object_guid  # شناسه گروه
@@ -151,23 +155,29 @@ async def updates(update: Update ):
     if update.message.text == "یک عضو گروه را ترک کرد." and update.message.type != "Text":
         await update.reply("درم ببند." )
 
-    
+
     # check admin
     admin_or_not = await bot.user_is_admin(update.object_guid,update.author_object_guid)
-    
+
     if admin_or_not:
-        if text == "آمار کلی":
-            cursor.execute("SELECT name, message_count FROM stats WHERE chat_guid = ? ORDER BY message_count DESC LIMIT 7", (chat_guid,))
+        if text == "آمار کلی" and admin_or_not:
+            cursor.execute("""
+            SELECT user_guid, name, message_count 
+            FROM stats 
+            WHERE chat_guid = ? 
+            ORDER BY message_count DESC 
+            LIMIT 7
+        """, (chat_guid,))
             top_users = cursor.fetchall()
 
             if top_users:
                 msg = "🏆 آمار ۷ نفر اول در این گروه:\n"
-                for i, (name, count) in enumerate(top_users, start=1):
-                    msg += f"{i}. {name} → {count} پیام\n"
+                for i, (u_guid, name, count) in enumerate(top_users, start=1):
+                    display_name = "شما" if u_guid == user_guid else name
+                    msg += f"{i}. {display_name} → {count} پیام\n"
                 await update.reply(msg)
             else:
                 await update.reply("هیچ آماری ثبت نشده.")
-
         # pin message
         if 'پین' == text or 'pin' == text or text == "سنجاق":
             await update.pin(update.object_guid,update.message.reply_to_message_id)
@@ -188,7 +198,7 @@ async def updates(update: Update ):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
+
             # بررسی وجود اخطار
             cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (target_guid,))
             row = cursor.fetchone()
@@ -207,7 +217,7 @@ async def updates(update: Update ):
         # join group
         #anti link
     else:
-     if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE):
+     if re.search(r'(https?://|www\.)\S+\.(com|ir)|بیو|@', text, re.IGNORECASE) and not admin_or_not:
         user_guid = update.author_guid
         author_info = await update.get_author(update.object_guid)
         username = author_info.chat.last_message.author_title or "کاربر"
@@ -226,8 +236,21 @@ async def updates(update: Update ):
 
         conn.commit()
 
-        await update.reply(f"❌ اخطار {warning_count}/3 به {username} به دلیل ارسال لینک")
-        await update.delete()
+        reply_msg = await update.reply(f"❌ اخطار {warning_count}/3 به {username} به دلیل ارسال لینک")
+        await update.delete()  # حذف پیام لینک‌دار کاربر
+
+# اگر بیشتر از یا مساوی ۳ اخطار شد → بن
+        if warning_count >= 3:
+            try:
+                await update.ban_member(update.object_guid, update.author_guid)
+                await update.reply(f"🚫 {username} به دلیل ۳ بار تخلف، بن شد.")
+            except Exception as e:
+                await update.reply(f"❗️خطا در بن کردن {username}: {str(e)}")
+        else:
+    # حذف پیام اخطار بعد از چند ثانیه
+            import asyncio
+            await asyncio.sleep(5)
+            await bot.delete_messages(update.object_guid, [reply_msg.message_id])
 
         # اگر بیشتر از یا مساوی ۳ اخطار شد → بن
         if warning_count >= 3:
@@ -238,9 +261,54 @@ async def updates(update: Update ):
                 await update.reply(f"❗️خطا در بن کردن {username}: {str(e)}")
 
     # کاهش یک اخطار توسط ادمین با ریپلای
- 
 
+    # فقط مدیران بتونن مالک رو تنظیم کنن
+
+    if "لینک گروه" in text or text == "لینک":
+        try:
+             link_data = await bot.get_group_link(chat_guid)
+             if link_data and link_data['join_link']:
+                await update.reply(f"🔗 لینک گروه:\n{link_data['join_link']}")
+             else:
+                await update.reply("❗ لینکی برای این گروه وجود ندارد یا ساخته نشده.")
+        except Exception as e:
+            await update.reply(f"❗ خطا در دریافت لینک گروه: {str(e)}")
+    if "مالک" in text:
+        cursor.execute("SELECT owner_guid FROM group_info WHERE chat_guid = ?", (chat_guid,))
+        row = cursor.fetchone()
+
+        if row and row[0]:
+            owner_guid = row[0]
+            try:
+                user_info = await bot.get_user_info(owner_guid)
+                username = user_info.user.username
+                if username:
+                    await update.reply(f"👑 @{username}")
+                else:
+                    await update.reply("❗ مالک ثبت شده نام کاربری عمومی ندارد.")
+            except Exception as e:
+                await update.reply(f"❗ خطا در دریافت اطلاعات مالک: {str(e)}")
+        else:
+            await update.reply("❗ مالک این گروه هنوز ثبت نشده.")
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
+        if update.reply_message_id and text == "ثبت مالک":
+            admin_check = await bot.user_is_admin(chat_guid, user_guid)
+        if admin_check:
+            try:
+            # گرفتن آیدی کسی که روش ریپلای شده
+                reply_author = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
+                target_guid = reply_author.user.user_guid
+                target_name = reply_author.user.first_name or "کاربر"
+
+            # ذخیره در دیتابیس
+                cursor.execute("REPLACE INTO group_info (chat_guid, owner_guid) VALUES (?, ?)", (chat_guid, target_guid))
+                conn.commit()
+
+                await update.reply(f"✅ {target_name} به عنوان مالک گروه ثبت شد.")
+            except Exception as e:
+                await update.reply(f"❗ خطا در ثبت مالک: {str(e)}")
+        else:
+            await update.reply("❗ فقط ادمین‌ها می‌تونن مالک رو تنظیم کنن.")
         if update.reply_message_id and text.startswith("تنظیم لقب"):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
@@ -280,7 +348,7 @@ async def updates(update: Update ):
                 await update.reply(f"جوونم {result[0]}")
             else:
                 a = randint(0,5)
-                await update.reply(ping_msg[4])
+                await update.reply(ping_msg[a])
                 #await update.reply(str(update))
         hi_msg =["سلام زیبا","های","بخواب بچه","سلام دختری؟","دیر اومدی داریم میبندیم"]
         if text == "سلام" or text == "سلامم":

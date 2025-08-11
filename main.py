@@ -1,12 +1,14 @@
-
-
 from rubpy import Client, filters
 from rubpy.types import Update
 import re
-
+import aiohttp
+from deep_translator import GoogleTranslator
+import random
 import sqlite3
+import jdatetime  # برای تاریخ شمسی
+import datetime
 
-conn = sqlite3.connect('data.db')
+conn = sqlite3.connect('data.db',check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -15,6 +17,16 @@ CREATE TABLE IF NOT EXISTS welcome_messages (
     message TEXT
 )
 """)
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS mutes (
+    user_guid TEXT,
+    chat_guid TEXT,
+    until INTEGER, -- زمان پایان سکوت به صورت timestamp (ثانیه)
+    PRIMARY KEY (user_guid, chat_guid)
+)
+""")
+
 
 # ایجاد جدول لقب‌ها اگر وجود نداشت
 cursor.execute("""
@@ -59,11 +71,9 @@ CREATE TABLE IF NOT EXISTS warnings (
 )
 """)
 
+
 conn.commit()
 
-import aiohttp
-from deep_translator import GoogleTranslator
-import random
 
 
 
@@ -87,9 +97,10 @@ bot = Client(name='rubpy')
 
 
 
-import asyncio
-import datetime
 
+
+
+active_voice_chats = {}
 
 @bot.on_message_updates(filters.text)
 async def updates(update: Update ):
@@ -98,6 +109,7 @@ async def updates(update: Update ):
     user_guid = update.author_guid
     user_name = name.chat.last_message.author_title or "کاربر"
     chat_guid = update.object_guid  # شناسه گروه
+    admin_or_not = await bot.user_is_admin(update.object_guid, update.author_object_guid)
 
     # --- مهم: مقداردهی پیش‌فرض تا UnboundLocalError پیش نیاد ---
     result = None
@@ -114,6 +126,95 @@ async def updates(update: Update ):
                        (user_guid, chat_guid, user_name, 1))
 
     conn.commit()
+
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    cursor.execute("SELECT until FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+    mute_data = cursor.fetchone()
+    if mute_data:
+        until = mute_data[0]
+        if until is None or until > now_ts:
+            await update.delete()
+            return
+        else:
+            # سکوت تمام شده → حذف رکورد
+            cursor.execute("DELETE FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+            conn.commit()
+    
+    
+    
+    # تابع برای تشخیص ویس چت فعال
+    
+    if text == "کال" and admin_or_not:
+        try:
+            # بررسی وجود ویس چت فعال
+            if chat_guid in active_voice_chats:
+                await update.reply("⚠️ از قبل یک ویس چت فعال دارید!")
+                return
+                
+            result = await bot.create_group_voice_chat(group_guid=chat_guid)
+            
+            # ذخیره اطلاعات ویس چت
+            active_voice_chats[chat_guid] = {
+                'voice_chat_id': result.voice_chat_id,
+                'title': 'ویس چت گروه'
+            }
+            
+            await update.reply("🎤 ویس چت با موفقیت ایجاد شد!\nبرای پیوستن از دکمه ویس چت در گروه استفاده کنید.")
+        except Exception as e:
+            await update.reply(f"❌ خطا در ایجاد ویس چت: {str(e)}")
+
+
+
+    if text == "تایم":
+        now = datetime.datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        await update.reply(f"⏰ ساعت فعلی: {current_time}")
+
+    if text == "تاریخ":
+        today_jalali = jdatetime.date.today()
+        date_str = today_jalali.strftime("%Y/%m/%d")
+        await update.reply(f"📅 تاریخ امروز (شمسی): {date_str}")
+   
+
+    # سکوت عادی یا زمان‌دار
+    if update.reply_message_id and text.startswith("سکوت"):
+        admin_check = await bot.user_is_admin(chat_guid, user_guid)
+        if admin_check:
+            target = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
+            target_guid = target.user.user_guid
+            target_name = target.user.first_name or "کاربر"
+
+            parts = text.split()
+            until_ts = None
+            if len(parts) == 2 and parts[1].isdigit():  # مثال: سکوت 5
+                minutes = int(parts[1])
+                until_ts = int((datetime.datetime.now() + datetime.timedelta(minutes=minutes)).timestamp())
+
+            cursor.execute("INSERT OR REPLACE INTO mutes (user_guid, chat_guid, until) VALUES (?, ?, ?)",
+                        (target_guid, chat_guid, until_ts))
+            conn.commit()
+
+            if until_ts:
+                await update.reply(f"🔇 {target_name} به مدت {minutes} دقیقه ساکت شد.")
+            else:
+                await update.reply(f"🔇 {target_name} در این گروه ساکت شد (دائمی).")
+        else:
+            await update.reply("❗ فقط ادمین‌ها می‌توانند سکوت بدهند.")
+
+    # حذف سکوت
+    if update.reply_message_id and text == "حذف سکوت":
+        admin_check = await bot.user_is_admin(chat_guid, user_guid)
+        if admin_check:
+            target = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
+            target_guid = target.user.user_guid
+            target_name = target.user.first_name or "کاربر"
+
+            cursor.execute("DELETE FROM mutes WHERE user_guid = ? AND chat_guid = ?", (target_guid, chat_guid))
+            conn.commit()
+            await update.reply(f"🔊 سکوت {target_name} برداشته شد.")
+        else:
+            await update.reply("❗ فقط ادمین‌ها می‌توانند سکوت کاربر را بردارند.")
 
     if text.startswith("ثبت پاسخ "):
         if await bot.user_is_admin(chat_guid, user_guid):
@@ -207,7 +308,7 @@ async def updates(update: Update ):
         await update.reply("درم ببند.")
 
     # check admin
-    admin_or_not = await bot.user_is_admin(update.object_guid, update.author_object_guid)
+
 
     if admin_or_not:
         # ... (دستورات ادمین مثل آمار کلی، پین، بن) بدون تغییر منطقی
@@ -511,11 +612,12 @@ async def updates(update: Update ):
     elif text == "راهنمای چالش":
         await update.reply(help_challenge)
 
-    # ... بقیه کدهای ربات شما ...
-
 
     if text in ["چالش", "چالش جدید"]:
         challenge = await get_challenge()
         await update.reply(challenge)
+
+
+
 
 bot.run()

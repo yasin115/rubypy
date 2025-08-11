@@ -98,7 +98,7 @@ async def updates(update: Update ):
     user_guid = update.author_guid
     user_name = name.chat.last_message.author_title or "کاربر"
     chat_guid = update.object_guid  # شناسه گروه
-    
+
     # --- مهم: مقداردهی پیش‌فرض تا UnboundLocalError پیش نیاد ---
     result = None
 
@@ -178,8 +178,8 @@ async def updates(update: Update ):
         else:
             await update.reply("❗ فقط ادمین‌ها می‌توانند اخطار ثبت کنند.")
 
- 
- 
+
+
     # آمار من
     if text == "آمار من":
         cursor.execute("SELECT message_count FROM stats WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
@@ -327,10 +327,10 @@ async def updates(update: Update ):
     # لینک گروه، مالک و بقیه دستورات مشابه
     if text == "لینک":
         try:
-            link_data = await bot.get_group_link(chat_guid)
-            if link_data and link_data.get('join_link'):
+             link_data = await bot.get_group_link(chat_guid)
+             if link_data and link_data['join_link']:
                 await update.reply(f"🔗 لینک گروه:\n{link_data['join_link']}")
-            else:
+             else:
                 await update.reply("❗ لینکی برای این گروه وجود ندارد یا ساخته نشده.")
         except Exception as e:
             await update.reply(f"❗ خطا در دریافت لینک گروه: {str(e)}")

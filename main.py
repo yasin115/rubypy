@@ -108,7 +108,8 @@ async def is_bot_active(chat_guid):
     result = cursor.fetchone()
     return result[0] == 1 if result else False
 
-
+async def is_special_admin(user_guid):
+    return user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65"
 active_voice_chats = {}
 async def tag_members(update: Update, limit=50):
     try:
@@ -198,7 +199,7 @@ async def updates(update: Update ):
     user_name = name.chat.last_message.author_title or "کاربر"
     chat_guid = update.object_guid  # شناسه گروه
     admin_or_not = await bot.user_is_admin(update.object_guid, update.author_object_guid)
-
+    special_admin = await is_special_admin(update.author_guid)
     # --- مهم: مقداردهی پیش‌فرض تا UnboundLocalError پیش نیاد ---
     result = None
     # update stats
@@ -213,7 +214,7 @@ async def updates(update: Update ):
                        (user_guid, chat_guid, user_name, 1))
 
     conn.commit()
-    if text == "ربات روشن" and admin_or_not:
+    if text == "ربات روشن" and (admin_or_not or special_admin):
         cursor.execute("""
         INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
         VALUES (?, 1)
@@ -221,7 +222,7 @@ async def updates(update: Update ):
         conn.commit()
         await update.reply("✅ ربات در این گروه فعال شد!")
 
-    elif text == "ربات خاموش" and admin_or_not:
+    elif text == "ربات خاموش" and (admin_or_not or special_admin):
         cursor.execute("""
             INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
             VALUES (?, 0)
@@ -340,7 +341,7 @@ async def updates(update: Update ):
         conn.commit()
         
         await update.reply(f"✅ اصل {target_name} حذف شد")
-    if text == "کال" and admin_or_not:
+    if text == "کال" and (admin_or_not or special_admin):
         try:
             # بررسی وجود ویس چت فعال
             if chat_guid in active_voice_chats:
@@ -403,7 +404,7 @@ async def updates(update: Update ):
         else:
             await update.reply("❗ فقط ادمین‌ها می‌توانند سکوت بدهند.")
     # حذف سکوت
-    elif text == "لیست سکوت" and admin_or_not:  # فقط ادمین‌ها می‌توانند لیست را ببینند
+    elif text == "لیست سکوت" and (admin_or_not or special_admin):  # فقط ادمین‌ها می‌توانند لیست را ببینند
         try:
             now_ts = int(datetime.now().timestamp())
             
@@ -487,7 +488,7 @@ async def updates(update: Update ):
     if row:
         await update.reply(row[0])
         return  # جلوگیری از اجرای دستورات بعدی برای همین پیام
-    if text in ["تگ", "tag"] and admin_or_not:
+    if text in ["تگ", "tag"] and (admin_or_not or special_admin):
         try:
             
            
@@ -583,7 +584,7 @@ async def updates(update: Update ):
     # check admin
 
 
-    if admin_or_not:
+    if (admin_or_not or special_admin):
         # ... (دستورات ادمین مثل آمار کلی، پین، بن) بدون تغییر منطقی
         if text == "آمار کلی":
             cursor.execute("SELECT user_guid, name, message_count FROM stats WHERE chat_guid = ? ORDER BY message_count DESC LIMIT 5", (chat_guid,))
@@ -665,7 +666,7 @@ async def updates(update: Update ):
             else:
                 await update.reply(f"ℹ️ {target_name} هیچ اخطاری ندارد.")
     if text.startswith("ثبت خوشامد "):
-        if admin_or_not:  # بررسی اینکه کاربر ادمین باشه
+        if (admin_or_not or special_admin):  # بررسی اینکه کاربر ادمین باشه
             welcome_text = text.replace("ثبت خوشامد ", "", 1)
             cursor.execute("REPLACE INTO welcome_messages (chat_guid, message) VALUES (?, ?)", (chat_guid, welcome_text))
             conn.commit()
@@ -674,7 +675,7 @@ async def updates(update: Update ):
             await update.reply("فقط ادمین می‌تواند پیام خوشامدگویی ثبت کند ❌")
 
     # anti-link (فقط وقتی کاربر ادمین نیست)
-    if search(r'(https?://|www\.)\S+\.(com|ir)|@', text, IGNORECASE) and not admin_or_not:
+    if search(r'(https?://|www\.)\S+\.(com|ir)|@', text, IGNORECASE) and not (admin_or_not or special_admin):
         author_info = await update.get_author(update.object_guid)
         username = author_info.chat.last_message.author_title or "کاربر"
 
@@ -707,7 +708,7 @@ async def updates(update: Update ):
             await asyncio.sleep(5)
             await bot.delete_messages(update.object_guid, [reply_msg.message_id])
         # تنظیم حداکثر اخطار برای گروه
-    if text.startswith("تنظیم اخطار") and admin_or_not:
+    if text.startswith("تنظیم اخطار") and (admin_or_not or special_admin):
         try:
             # استخراج عدد از دستور با در نظر گرفتن فاصله‌های مختلف
             parts = text.split()
@@ -738,7 +739,7 @@ async def updates(update: Update ):
         
         except Exception as e:
             await update.reply(f"❌ خطا در تنظیم اخطار: {str(e)}")
-    if "بیو" in text and not admin_or_not:
+    if "بیو" in text and not (admin_or_not or special_admin):
         await update.delete()
     
    
@@ -760,7 +761,8 @@ async def updates(update: Update ):
             await update.reply("❗ فقط ادمین‌ها می‌تونن مالک رو تنظیم کنن.")
     # حذف لقب (فقط مدیر ربات)
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
-        if update.reply_message_id and text == "حذف لقب":
+        pass
+    if update.reply_message_id and text == "حذف لقب":
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             cursor.execute("DELETE FROM titles WHERE user_guid = ? AND chat_guid = ?", (target_guid, chat_guid))
@@ -906,7 +908,7 @@ async def updates(update: Update ):
         
         
         
-    if update.reply_message_id and text.startswith("تنظیم لقب") and admin_or_not:
+    if update.reply_message_id and text.startswith("تنظیم لقب") and (admin_or_not or special_admin):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             title = text.replace("تنظیم لقب", "").strip()

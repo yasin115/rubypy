@@ -18,6 +18,12 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     PRIMARY KEY (user_guid, chat_guid)
 )
 """)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS warning_settings (
+    chat_guid TEXT PRIMARY KEY,
+    max_warnings INTEGER DEFAULT 3
+)
+""")
 
 
 cursor.execute("""
@@ -536,21 +542,27 @@ async def updates(update: Update ):
         title_row = cursor.fetchone()
         title = title_row[0] if title_row else "ثبت نشده"
         
-        cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (user_guid,))
-        warn_row = cursor.fetchone()
-        warn_row1 = warn_row[0] if warn_row else 0
         cursor.execute("""
         SELECT original_text FROM user_profiles 
         WHERE user_guid = ? AND chat_guid = ?
         """, (user_guid, chat_guid))
         original_row = cursor.fetchone()
-        
         original_status = original_row[0] if original_row else "ثبت نشده"
+        cursor.execute("SELECT max_warnings FROM warning_settings WHERE chat_guid = ?", (chat_guid,))
+        setting = cursor.fetchone()
+        max_warnings = setting[0] if setting else 3
+        
+        cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (user_guid,))
+        warn_row = cursor.fetchone()
+        warn_count = warn_row[0] if warn_row else 0
+    
+    # ... (بقیه کدها)
+        
         await update.reply(
             f"📊 آمار شما:\n"
             f"📌 پیام‌ها: {msg_row[0]}\n"
             f"🏷 لقب: {title}\n"
-            f"⚠️ اخطارها: {warn_row1}/3\n"
+            f"⚠️ اخطارها: {warn_count}/{max_warnings}\n"
             f"📝 اصل: {original_status}"
         )
 
@@ -634,7 +646,7 @@ async def updates(update: Update ):
         except Exception as e:
             await update.reply(f"❌ خطا در اجرای دستور آنبن: {str(e)}")
     # حذف اخطار (ریپلای)
-        if update.reply_message_id and text == "حذف اخطار":
+    if update.reply_message_id and text == "حذف اخطار":
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
@@ -676,19 +688,56 @@ async def updates(update: Update ):
             cursor.execute("INSERT INTO warnings (user_guid, count) VALUES (?, ?)", (user_guid, warning_count))
         conn.commit()
 
-        reply_msg = await update.reply(f"❌ اخطار {warning_count}/3 به {username} به دلیل ارسال لینک")
+        # دریافت تنظیمات حداکثر اخطار برای این گروه
+        cursor.execute("SELECT max_warnings FROM warning_settings WHERE chat_guid = ?", (chat_guid,))
+        setting = cursor.fetchone()
+        max_warnings = setting[0] if setting else 3  # پیش‌فرض 3
+
+        reply_msg = await update.reply(f"❌ اخطار {warning_count}/{max_warnings} به {username} به دلیل ارسال لینک")
         await update.delete()
 
-        if warning_count >= 3:
+        if warning_count >= max_warnings:
             try:
                 await update.ban_member(update.object_guid, update.author_guid)
-                await update.reply(f"🚫 {username} به دلیل ۳ بار تخلف، بن شد.")
+                await update.reply(f"🚫 {username} به دلیل {max_warnings} بار تخلف، بن شد.")
             except Exception as e:
                 await update.reply(f"❗️خطا در بن کردن {username}: {str(e)}")
         else:
             import asyncio
             await asyncio.sleep(5)
             await bot.delete_messages(update.object_guid, [reply_msg.message_id])
+        # تنظیم حداکثر اخطار برای گروه
+    if text.startswith("تنظیم اخطار") and admin_or_not:
+        try:
+            # استخراج عدد از دستور با در نظر گرفتن فاصله‌های مختلف
+            parts = text.split()
+            number_found = False
+            
+            for part in parts:
+                if part.isdigit():
+                    new_max = int(part)
+                    number_found = True
+                    break
+                    
+            if not number_found:
+                await update.reply("❌ لطفاً عدد معتبر وارد کنید. مثال: تنظیم اخطار 5")
+                return
+                
+            if new_max < 1:
+                await update.reply("❌ عدد باید حداقل 1 باشد")
+                return
+                
+            # ذخیره در دیتابیس
+            cursor.execute("""
+            INSERT OR REPLACE INTO warning_settings (chat_guid, max_warnings)
+            VALUES (?, ?)
+            """, (chat_guid, new_max))
+            conn.commit()
+            
+            await update.reply(f"✅ حداکثر اخطار برای این گروه به {new_max} تنظیم شد.")
+        
+        except Exception as e:
+            await update.reply(f"❌ خطا در تنظیم اخطار: {str(e)}")
     if "بیو" in text and not admin_or_not:
         await update.delete()
     
@@ -925,6 +974,8 @@ async def updates(update: Update ):
 - راهنما: نمایش این راهنما
 
 🔹 دستورات مدیریتی (فقط ادمین‌ها):
+- تنظیم اخطار [عدد]: تنظیم حداکثر اخطار برای گروه (مثلاً: تنظیم اخطار 5)
+- تنظیمات اخطار: نمایش تنظیمات فعلی اخطار
 - ربات روشن/خاموش: فعال/غیرفعال کردن ربات
 - ثبت اصل (ریپلای): ثبت اصل کاربر
 - حذف اصل (ریپلای): حذف اصل کاربر

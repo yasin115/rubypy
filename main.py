@@ -114,7 +114,7 @@ active_voice_chats = {}
 async def tag_members(update: Update, limit=50):
     try:
         chat_guid = update.object_guid
-        
+
         # دریافت لیست اعضا
         try:
             members = await bot.get_group_all_members(group_guid=chat_guid)
@@ -140,12 +140,12 @@ async def tag_members(update: Update, limit=50):
         mentions = []
         tagged_count = 0
         already_tagged = set()
-        
+
         # اول کاربران پرکاربرد را تگ می‌کنیم (به جز خود کاربر)
         for user_guid in top_user_guids:
             if user_guid == update.author_guid:
                 continue  # از تگ کردن خود کاربر جلوگیری می‌کنیم
-                
+
             try:
                 user_info = await bot.get_user_info(user_guid=user_guid)
                 username = getattr(getattr(user_info, 'user', None), 'username', None)
@@ -164,9 +164,9 @@ async def tag_members(update: Update, limit=50):
         all_members = [m for m in getattr(members, 'in_chat_members', []) 
                       if m.member_guid not in already_tagged 
                       and m.member_guid != update.author_guid]
-        
+
         shuffle(all_members)
-        
+
         for member in all_members[:limit - tagged_count]:
             try:
                 user_info = await bot.get_user_info(user_guid=member.member_guid)
@@ -247,7 +247,7 @@ async def updates(update: Update ):
                 "`ربات روشن` استفاده کنید\n\n"
                 "دستورات فقط توسط ادمین‌ها قابل اجرا هستند."
             )
-    
+
     now_ts = int(datetime.now().timestamp())
     cursor.execute("SELECT until FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
     mute_data = cursor.fetchone()
@@ -260,38 +260,38 @@ async def updates(update: Update ):
             # سکوت تمام شده → حذف رکورد
             cursor.execute("DELETE FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
             conn.commit()
-    
-    
-            
+
+
+
     # ثبت اصل توسط ادمین (با ریپلای بر پیام کاربر - نسخه گروه‌بندی شده)
     if update.reply_message_id and text == "ثبت اصل":
         # بررسی ادمین بودن
         if not await bot.user_is_admin(chat_guid, user_guid):
             await update.reply("❌ فقط ادمین‌ها می‌توانند ثبت اصل انجام دهند")
             return
-        
+
         try:
             # دریافت پیام اصلی که ریپلای شده
             replied_msg = await bot.get_messages_by_id(
                 object_guid=update.object_guid,
                 message_ids=[update.message.reply_to_message_id]
             )
-      
+
             if not replied_msg or not hasattr(replied_msg, 'messages') or not replied_msg.messages:
                 await update.reply("❌ پیام مورد نظر یافت نشد")
                 return
-            
+
             target_msg = replied_msg.messages[0]
             target_guid = target_msg.author_object_guid
             target_name = target_msg.author_title or "کاربر"
-            
+
             # استخراج متن اصل از پیام کاربر
             original_text = target_msg.text
-            
+
             if not original_text:
                 await update.reply("❌ متن اصل کاربر خالی است")
                 return
-            
+
             # ذخیره در دیتابیس با در نظر گرفتن گروه
             cursor.execute("""
             INSERT OR REPLACE INTO user_profiles 
@@ -299,9 +299,9 @@ async def updates(update: Update ):
             VALUES (?, ?, ?)
             """, (target_guid, chat_guid, original_text))
             conn.commit()
-            
+
             await update.reply(f"✅ اصل {target_name} در این گروه با موفقیت ثبت شد:\n{original_text}")
-            
+
         except Exception as e:
             await update.reply("❌ خطا در پردازش پیام ریپلای شده")
             print(f"Error in ثبت اصل: {str(e)}")
@@ -312,18 +312,18 @@ async def updates(update: Update ):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
+
             cursor.execute("""
             SELECT original_text FROM user_profiles 
             WHERE user_guid = ? AND chat_guid = ?
             """, (target_guid, chat_guid))
             result = cursor.fetchone()
-            
+
             if result:
                 await update.reply(f"📌 اصل {target_name} در این گروه:\n{result[0]}")
             else:
                 await update.reply(f"ℹ️ برای {target_name} در این گروه اصل ثبت نشده است")
-                
+
         except Exception as e:
             await update.reply("❌ خطا در دریافت اطلاعات")
             print(f"Error in مشاهده اصل: {str(e)}")
@@ -332,14 +332,14 @@ async def updates(update: Update ):
         if not await bot.user_is_admin(chat_guid, user_guid):
             await update.reply("❌ فقط ادمین‌ها می‌توانند اصل را حذف کنند")
             return
-        
+
         target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
         target_guid = target.user.user_guid
         target_name = target.user.first_name or "کاربر"
-        
+
         cursor.execute("DELETE FROM user_profiles WHERE user_guid = ?", (target_guid,))
         conn.commit()
-        
+
         await update.reply(f"✅ اصل {target_name} حذف شد")
     if text == "کال" and (admin_or_not or special_admin):
         try:
@@ -347,15 +347,15 @@ async def updates(update: Update ):
             if chat_guid in active_voice_chats:
                 await update.reply("⚠️ از قبل یک ویس چت فعال دارید!")
                 return
-                
+
             result = await bot.create_group_voice_chat(group_guid=chat_guid)
-            
+
             # ذخیره اطلاعات ویس چت
             active_voice_chats[chat_guid] = {
                 'voice_chat_id': result.voice_chat_id,
                 'title': 'ویس چت گروه'
             }
-            
+
             await update.reply("🎤 ویس چت با موفقیت ایجاد شد!\nبرای پیوستن از دکمه ویس چت در گروه استفاده کنید.")
         except Exception as e:
             await update.reply(f"❌ خطا در ایجاد ویس چت: {str(e)}")
@@ -371,22 +371,23 @@ async def updates(update: Update ):
         today_jalali = date.today()
         date_str = today_jalali.strftime("%Y/%m/%d")
         await update.reply(f"📅 تاریخ امروز (شمسی): {date_str}")
-   
+
 
         # سکوت عادی یا زمان‌دار
     if update.reply_message_id and text.startswith("سکوت"):
-        admin_check = await bot.user_is_admin(chat_guid, user_guid)
-        if admin_check:
+        if (admin_or_not or special_admin):
             target = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
-            # Check if target is admin
+
+            # Check if target is admin or special user
             target_is_admin = await bot.user_is_admin(chat_guid, target_guid)
-            if target_is_admin:
-                await update.reply("❌ نمی‌توانید ادمین‌ها را ساکت کنید")
-                return
+            target_is_special = await is_special_admin(target_guid)
+            if target_is_admin or target_is_special:
+                await update.reply("🤖 این کاربر قابل سکوت کردن نیست!")
                 
+                return
+
             parts = text.split()
             until_ts = None
             if len(parts) == 2 and parts[1].isdigit():
@@ -407,46 +408,46 @@ async def updates(update: Update ):
     elif text == "لیست سکوت" and (admin_or_not or special_admin):  # فقط ادمین‌ها می‌توانند لیست را ببینند
         try:
             now_ts = int(datetime.now().timestamp())
-            
+
             # دریافت لیست کاربران سکوت شده در این گروه (هم دائمی و هم موقت)
             cursor.execute("""
                 SELECT user_guid, until FROM mutes 
                 WHERE chat_guid = ? AND (until IS NULL OR until > ?)
                 ORDER BY until
             """, (chat_guid, now_ts))
-            
+
             muted_users = cursor.fetchall()
-            
+
             if not muted_users:
                 await update.reply("🔊 هیچ کاربری در حال حاضر سکوت نشده است.")
                 return
-            
+
             message = "🔇 لیست کاربران سکوت شده:\n\n"
-            
+
             for user_guid, until_ts in muted_users:
                 user_info = await bot.get_user_info(user_guid=user_guid)
                 username = getattr(getattr(user_info, 'user', None), 'username', None)
                 name = getattr(getattr(user_info, 'user', None), 'first_name', 'کاربر')
-                
+
                 if until_ts is None:
                     mute_status = "🔴 دائمی"
                 else:
                     remaining_minutes = (until_ts - now_ts) // 60
                     mute_status = f"⏳ {remaining_minutes} دقیقه باقی‌مانده"
-                
+
                 if username:
                     message += f"➖ @{username} ({mute_status})\n"
                 else:
                     message += f"➖ {name} ({mute_status})\n"
-            
+
             await update.reply(message)
-        
+
         except Exception as e:
             await update.reply("❌ خطا در دریافت لیست سکوت‌شده‌ها")
             print(f"Error in لیست سکوت: {str(e)}")
     if update.reply_message_id and text == "حذف سکوت":
-        admin_check = await bot.user_is_admin(chat_guid, user_guid)
-        if admin_check:
+        
+        if (admin_or_not or special_admin):
             target = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
@@ -458,7 +459,7 @@ async def updates(update: Update ):
             await update.reply("❗ فقط ادمین‌ها می‌توانند سکوت کاربر را بردارند.")
 
     if text.startswith("ثبت پاسخ "):
-        if await bot.user_is_admin(chat_guid, user_guid):
+        if (admin_or_not or special_admin):
             try:
                 # حذف بخش ابتدایی دستور
                 data = text.replace("ثبت پاسخ ", "", 1)
@@ -490,26 +491,30 @@ async def updates(update: Update ):
         return  # جلوگیری از اجرای دستورات بعدی برای همین پیام
     if text in ["تگ", "tag"] and (admin_or_not or special_admin):
         try:
-            
-           
+
+
             await tag_members(update)
-           
-           
+
+
         except Exception as e:
             await update.reply("❌ خطا در بررسی سطح دسترسی")
             print(f"Admin check error: {str(e)}")
 
     if update.reply_message_id and text == "اخطار":
-        admin_check = await bot.user_is_admin(chat_guid, user_guid)
-        if admin_check:
+        if (admin_or_not or special_admin):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
-            # بررسی آیا کاربر هدف ادمین است
+
+            # بررسی آیا کاربر هدف ادمین است یا کاربر خاص
             target_is_admin = await bot.user_is_admin(chat_guid, target_guid)
+            target_is_special = await is_special_admin(target_guid)
             if target_is_admin:
-                await update.reply("❌ نمی‌توانید به ادمین‌ها اخطار دهید")
+                await update.reply("❌ نمی‌توانید به ادمین‌ها یا کاربران ویژه اخطار دهید")
+                return
+            elif target_is_special:
+                await update.reply("🤖 این کاربر قابل اخطار دادن نیست!")
+
                 return
 
             cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (target_guid,))
@@ -542,7 +547,7 @@ async def updates(update: Update ):
         cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
         title_row = cursor.fetchone()
         title = title_row[0] if title_row else "ثبت نشده"
-        
+
         cursor.execute("""
         SELECT original_text FROM user_profiles 
         WHERE user_guid = ? AND chat_guid = ?
@@ -552,13 +557,13 @@ async def updates(update: Update ):
         cursor.execute("SELECT max_warnings FROM warning_settings WHERE chat_guid = ?", (chat_guid,))
         setting = cursor.fetchone()
         max_warnings = setting[0] if setting else 3
-        
+
         cursor.execute("SELECT count FROM warnings WHERE user_guid = ?", (user_guid,))
         warn_row = cursor.fetchone()
         warn_count = warn_row[0] if warn_row else 0
-    
+
     # ... (بقیه کدها)
-        
+
         await update.reply(
             f"📊 آمار شما:\n"
             f"📌 پیام‌ها: {msg_row[0]}\n"
@@ -600,31 +605,29 @@ async def updates(update: Update ):
             await update.pin(update.object_guid, update.message.reply_to_message_id)
             await update.reply("سنجاق شد")
     if update.reply_message_id and text in ('بن', 'سیک', 'ریمو'):
-        # بررسی ادمین بودن کاربر ارسال‌کننده
         if not await bot.user_is_admin(update.object_guid, update.author_guid):
             await update.reply("❌ فقط ادمین‌ها می‌توانند کاربران را بن کنند!")
             return
-        
+
         try:
-            # دریافت اطلاعات کاربر هدف
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
-            # جلوگیری از بن خود ربات
-            if target_guid == update.user_guid:
-                await update.reply("🤖 من رو که نمیتونی بن کنی!")
+
+            # جلوگیری از بن خود ربات یا کاربران ویژه
+            if target_guid == update.user_guid or await is_special_admin(target_guid):
+                await update.reply("🤖 این کاربر قابل بن کردن نیست!")
                 return
-                
+
             # جلوگیری از بن ادمین‌ها توسط ادمین‌های دیگر
             if await bot.user_is_admin(update.object_guid, target_guid):
                 await update.reply("⚠️ نمی‌توانید ادمین‌ها را بن کنید!")
                 return
-                
+
             # اجرای عملیات بن
             await update.ban_member(update.object_guid, target_guid)
             await update.reply(f"✅ کاربر {target_name} با موفقیت بن شد.")
-            
+
         except Exception as e:
             await update.reply(f"❌ خطا در اجرای دستور بن: {str(e)}")
 
@@ -633,21 +636,21 @@ async def updates(update: Update ):
         if not await bot.user_is_admin(update.object_guid, update.author_guid):
             await update.reply("❌ فقط ادمین‌ها می‌توانند کاربران را آنبن کنند!")
             return
-        
+
         try:
             # دریافت اطلاعات کاربر هدف
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
-            
+
             # اجرای عملیات آنبن
             await update.unban_member(update.object_guid, target_guid)
             await update.reply(f"✅ کاربر {target_name} با موفقیت آنبن شد.")
-            
+
         except Exception as e:
             await update.reply(f"❌ خطا در اجرای دستور آنبن: {str(e)}")
     # حذف اخطار (ریپلای)
-    if update.reply_message_id and text == "حذف اخطار":
+    if update.reply_message_id and text == "حذف اخطار" and (admin_or_not or is_special_admin):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"
@@ -713,36 +716,36 @@ async def updates(update: Update ):
             # استخراج عدد از دستور با در نظر گرفتن فاصله‌های مختلف
             parts = text.split()
             number_found = False
-            
+
             for part in parts:
                 if part.isdigit():
                     new_max = int(part)
                     number_found = True
                     break
-                    
+
             if not number_found:
                 await update.reply("❌ لطفاً عدد معتبر وارد کنید. مثال: تنظیم اخطار 5")
                 return
-                
+
             if new_max < 1:
                 await update.reply("❌ عدد باید حداقل 1 باشد")
                 return
-                
+
             # ذخیره در دیتابیس
             cursor.execute("""
             INSERT OR REPLACE INTO warning_settings (chat_guid, max_warnings)
             VALUES (?, ?)
             """, (chat_guid, new_max))
             conn.commit()
-            
+
             await update.reply(f"✅ حداکثر اخطار برای این گروه به {new_max} تنظیم شد.")
-        
+
         except Exception as e:
             await update.reply(f"❌ خطا در تنظیم اخطار: {str(e)}")
     if "بیو" in text and not (admin_or_not or special_admin):
         await update.delete()
-    
-   
+
+
     # ثبت مالک (با ریپلای) - مثل سابق
     if update.reply_message_id and text == "ثبت مالک":
         admin_check = await bot.user_is_admin(chat_guid, user_guid)
@@ -809,11 +812,11 @@ async def updates(update: Update ):
 
     # تنظیم لقب (برای مدیر ربات)
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
-        
+
         import asyncio
-        
-        
-        
+
+
+
         if text.startswith("ارسال به همه"):
             try:
                 if not update.reply_message_id:
@@ -825,7 +828,7 @@ async def updates(update: Update ):
                     object_guid=update.object_guid,
                     message_ids=[update.reply_to_message_id]
                 )
-                
+
                 if not replied_msg or not replied_msg.messages:
                     await update.reply("❌ پیام مورد نظر یافت نشد")
                     return
@@ -844,7 +847,7 @@ async def updates(update: Update ):
                 for group in active_groups:
                     group_guid = group[0]
                     total += 1
-                    
+
                     try:
                         # ارسال پیام با ریپلای
                         await bot.send_message(
@@ -858,7 +861,7 @@ async def updates(update: Update ):
                         # غیرفعال کردن گروه در دیتابیس اگر ارسال ناموفق بود
                         cursor.execute("UPDATE bot_status SET is_active=0 WHERE chat_guid=?", (group_guid,))
                         conn.commit()
-                    
+
                     await asyncio.sleep(1)  # تاخیر برای جلوگیری از محدودیت API
 
                     # به‌روزرسانی وضعیت هر 5 گروه
@@ -882,32 +885,32 @@ async def updates(update: Update ):
 
             except Exception as e:
                 await update.reply(f"❌ خطا در ارسال گروهی: {str(e)}")
-        
-        
-        
-        
+
+
+
+
         if text == "تعداد گروه‌ها":
             try:
             # شمارش گروه‌های فعال
                 cursor.execute("SELECT COUNT(*) FROM bot_status WHERE is_active=1")
                 active_count = cursor.fetchone()[0]
-                
+
                 # شمارش کل گروه‌ها
                 cursor.execute("SELECT COUNT(*) FROM bot_status")
                 total_count = cursor.fetchone()[0]
-                
+
                 await update.reply(
                     f"📊 آمار گروه‌ها:\n\n"
                     f"• ✅ گروه‌های فعال: {active_count}\n"
                     f"• ❌ گروه‌های غیرفعال: {total_count - active_count}\n"
                     f"• 🌀 کل گروه‌ها: {total_count}"
                 )
-                
+
             except Exception as e:
                 await update.reply(f"❌ خطا در دریافت آمار: {str(e)}")
-        
-        
-        
+
+
+
     if update.reply_message_id and text.startswith("تنظیم لقب") and (admin_or_not or special_admin):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid

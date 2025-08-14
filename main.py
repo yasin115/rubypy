@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS bot_status (
 conn.commit()
 
 
-
+active_games = {}
 bot = Client(name='rubpy')
 
 async def download_file(url, local_path):
@@ -1054,7 +1054,49 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             await update.reply(f"جوونم {result[0]}")
         else:
             await update.reply(choice(ping_msg))
-
+    if text == "فال":
+        try:
+            import requests
+            url = "https://hafez-dxle.onrender.com/fal"
+            response = requests.get(url)
+            data = response.json()  # مستقیماً JSON را به دیکشنری تبدیل میکند
+            data_text = data['interpreter']
+            data_title = data['title']
+            await update.reply(f"📜 فال حافظ:\n\n{data_title}\n\n{data_text}")
+        except:
+            await update.reply("❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید.")
+    elif text == "حدس عدد":
+            # ذخیره بازی در حافظه
+        chat_key = f"{chat_guid}_{user_guid}"
+        number = randint(1, 100)
+        active_games[chat_key] = number
+        await update.reply("🎮 بازی حدس عدد شروع شد!\nمن یک عدد بین ۱ تا ۱۰۰ انتخاب کردم. حدس بزن چه عددی است؟")
+    
+    elif text.isdigit() and f"{chat_guid}_{user_guid}" in active_games:
+        # بازی فعال وجود دارد
+        chat_key = f"{chat_guid}_{user_guid}"
+        guess = int(text)
+        number = active_games[chat_key]
+        
+        if guess < number:
+            await update.reply("برو بالا! ⬆️")
+        elif guess > number:
+            await update.reply("برو پایین! ⬇️")
+        else:
+            await update.reply(f"🎉 آفرین! درست حدس زدی. عدد {number} بود!")
+            del active_games[chat_key]
+    
+    elif text == "پیش بینی":
+        predictions = [
+            "فردا روز خوبی برای تو خواهد بود",
+            "هفته آینده اتفاق خوشایندی برایت می‌افتد",
+            "بگا خواهی رفت",
+            "به زودی خبر خوبی دریافت خواهی کرد",
+            "در کارهایت موفق خواهی شد",
+            "مراقب فرصت‌های پیش رو باش"
+        ]
+        await update.reply(f"🔮 پیش‌بینی:\n{choice(predictions)}")
+    
     # بقیه پیام‌های ساده
     # hi_msg = ["سلام زیبا","های","بخواب بچه","سلام دختری؟","دیر اومدی داریم میبندیم"]
     if text in ("سلام", "سلامم"):

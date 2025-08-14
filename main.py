@@ -1058,7 +1058,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
     # بقیه پیام‌های ساده
     # hi_msg = ["سلام زیبا","های","بخواب بچه","سلام دختری؟","دیر اومدی داریم میبندیم"]
     if text in ("سلام", "سلامم"):
-        await update.reply("سلام زیبا")
+        await update.reply("سلام بهونه قشنگ زندگیم")
     if "شب بخیر" in text:
         await update.reply("خوب بخوابی :)")
 

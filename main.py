@@ -112,10 +112,19 @@ async def download_file(url, local_path):
             return False
 
 async def restart_bot():
-    from sys import executable,argv
-    from os import execl
-    python = executable
-    execl(python, python, *argv)
+    """تابع ریستارت ربات برای محیط سرور"""
+    try:
+        
+        from os import path
+        from sys import exit
+        from subprocess import Popen
+        # اجرای اسکریپت ریستارت
+        script_path = path.join(path.dirname(__file__), "restart.sh")
+        Popen(["/bin/bash", script_path])
+        exit(0)
+    except Exception as e:
+        print(f"Restart failed: {e}")
+        exit(1)
 
 
     # تابع بررسی وضعیت ربات
@@ -280,28 +289,35 @@ async def updates(update: Update ):
 
     if text in ["اپدیت", "update"] and await is_special_admin(update.author_guid):
             try:
-                from os import replace
                 await update.reply("⏳ در حال دریافت آخرین نسخه از گیت‌هاب...")
                 
-                # URL فایل اصلی در گیت‌هاب (جایگزین کنید با آدرس فایل خودتان)
+                # URL فایل اصلی در گیت‌هاب
                 github_url = "https://raw.githubusercontent.com/yasin115/rubypy/refs/heads/main/main.py"
-                
-                # دانلود فایل جدید
                 temp_file = "bot_new.py"
                 success = await download_file(github_url, temp_file)
                 
                 if not success:
                     await update.reply("❌ خطا در دریافت فایل از گیت‌هاب")
                     return
-                    
+                from os import replace,chmod
                 # جایگزینی فایل فعلی
                 current_file = __file__
                 replace(temp_file, current_file)
                 
                 await update.reply("✅ اپدیت با موفقیت انجام شد! ربات در حال ریستارت...")
                 
+                # ایجاد فایل اسکریپت ریستارت
+                restart_script = """
+#!/bin/bash
+sleep 3
+nohup python main.py > output.log 2>&1 &
+                """
+                
+                with open("restart.sh", "w") as f:
+                    f.write(restart_script)
+                chmod("restart.sh", 0o755)  # اجازه اجرا
+                
                 # ریستارت ربات
-                await asyncio.sleep(2)
                 await restart_bot()
                 
             except Exception as e:

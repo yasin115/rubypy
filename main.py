@@ -310,7 +310,7 @@ async def updates(update: Update ):
                 restart_script = """
 #!/bin/bash
 sleep 3
-nohup python main.py > output.log 2>&1 &
+nohup python passenger_wsgi.py > output.log 2>&1 &
                 """
                 
                 with open("restart.sh", "w") as f:

@@ -100,6 +100,22 @@ conn.commit()
 
 bot = Client(name='rubpy')
 
+async def download_file(url, local_path):
+    from aiohttp import ClientSession
+    async with ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                content = await response.read()
+                with open(local_path, 'wb') as f:
+                    f.write(content)
+                return True
+            return False
+
+async def restart_bot():
+    from sys import executable,argv
+    from os import execl
+    python = executable
+    execl(python, python, *argv)
 
 
     # تابع بررسی وضعیت ربات
@@ -262,7 +278,36 @@ async def updates(update: Update ):
             conn.commit()
 
 
-
+    if text in ["اپدیت", "update"] and await is_special_admin(update.author_guid):
+            try:
+                from os import replace
+                await update.reply("⏳ در حال دریافت آخرین نسخه از گیت‌هاب...")
+                
+                # URL فایل اصلی در گیت‌هاب (جایگزین کنید با آدرس فایل خودتان)
+                github_url = "https://raw.githubusercontent.com/yasin115/rubypy/refs/heads/main/main.py"
+                
+                # دانلود فایل جدید
+                temp_file = "bot_new.py"
+                success = await download_file(github_url, temp_file)
+                
+                if not success:
+                    await update.reply("❌ خطا در دریافت فایل از گیت‌هاب")
+                    return
+                    
+                # جایگزینی فایل فعلی
+                current_file = __file__
+                replace(temp_file, current_file)
+                
+                await update.reply("✅ اپدیت با موفقیت انجام شد! ربات در حال ریستارت...")
+                
+                # ریستارت ربات
+                await asyncio.sleep(2)
+                await restart_bot()
+                
+            except Exception as e:
+                await update.reply(f"❌ خطا در فرآیند اپدیت: {str(e)}")
+                print(f"Update error: {str(e)}")
+        
     # ثبت اصل توسط ادمین (با ریپلای بر پیام کاربر - نسخه گروه‌بندی شده)
     if update.reply_message_id and text == "ثبت اصل":
         # بررسی ادمین بودن
@@ -360,8 +405,52 @@ async def updates(update: Update ):
         except Exception as e:
             await update.reply(f"❌ خطا در ایجاد ویس چت: {str(e)}")
 
-
-
+    if text.startswith("//"):
+        parts = text.split()[1:]
+        query = " ".join(parts)
+        
+        # ارسال پیام اولیه
+        msg = await bot.send_message(
+            object_guid=update.object_guid,
+            text='لطفا کمی صبر کنید...',
+            reply_to_message_id=update.message_id
+        )
+        
+        object_guid = msg.object_guid
+        message_id = msg.message_id
+        
+        try:
+            from aiohttp import ClientSession, ClientTimeout
+            timeout = ClientTimeout(total=30)  # تنظیم تایم‌اوت 30 ثانیه
+            
+            async with ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    'https://shython-apis.liara.run/ai',
+                    params={'prompt': query}
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        # ویرایش پیام با استفاده از کلاینت اصلی
+                        await bot.edit_message(
+                            object_guid=object_guid,
+                            message_id=message_id,
+                            text=data['data']
+                        )
+                    else:
+                        await bot.edit_message(
+                            object_guid=object_guid,
+                            message_id=message_id,
+                            text='⚠ خطا در دریافت پاسخ از سرور'
+                        )
+                        
+        except Exception as e:
+            # نمایش خطا با ویرایش همان پیام
+            error_msg = f'⚠ خطا: {str(e)}'[:4000]  # محدودیت طول پیام
+            await bot.edit_message(
+                object_guid=object_guid,
+                message_id=message_id,
+                text=error_msg
+            )
     if text == "تایم":
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
@@ -475,7 +564,7 @@ async def updates(update: Update ):
                 await update.reply(f"❗ خطا در ثبت پاسخ: {str(e)}")
         else:
             await update.reply("❗ فقط ادمین‌ها می‌توانند پاسخ کلیدواژه ثبت کنند.")
-
+    
     if text.startswith("حذف پاسخ "):
         if await bot.user_is_admin(chat_guid, user_guid):
             keyword = text.replace("حذف پاسخ ", "", 1).strip()

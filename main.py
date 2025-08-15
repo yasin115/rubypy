@@ -245,7 +245,7 @@ async def updates(update: Update ):
         VALUES (?, 1)
         """, (chat_guid,))
         conn.commit()
-        await update.reply("✅ ربات در این گروه فعال شد!\n\n @link4yu")
+        await update.reply("✅ ربات در این گروه فعال شد! @link4yu")
 
     elif text == "ربات خاموش" and (admin_or_not or special_admin):
         cursor.execute("""
@@ -253,7 +253,7 @@ async def updates(update: Update ):
             VALUES (?, 0)
         """, (chat_guid,))
         conn.commit()
-        await update.reply("🔴 ربات در این گروه غیرفعال شد!")
+        await update.reply("🔴 ربات در این گروه غیرفعال شد! @link4yu")
 
         # در ابتدای تابع on_message_updates (قبل از پردازش هر پیام)
     if not await is_bot_active(update.object_guid):
@@ -361,7 +361,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             """, (target_guid, chat_guid, original_text))
             conn.commit()
 
-            await update.reply(f"✅ اصل {target_name} در این گروه با موفقیت ثبت شد:\n{original_text}")
+            await update.reply(f"✅ اصل {target_name} در این گروه با موفقیت ثبت شد:\n{original_text} ")
 
         except Exception as e:
             await update.reply("❌ خطا در پردازش پیام ریپلای شده")
@@ -527,7 +527,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
                 await update.reply("🔊 هیچ کاربری در حال حاضر سکوت نشده است.")
                 return
 
-            message = "🔇 لیست کاربران سکوت شده:\n\n"
+            message = "@link4yu 🔇 لیست کاربران سکوت شده:\n\n"
 
             for user_guid, until_ts in muted_users:
                 user_info = await bot.get_user_info(user_guid=user_guid)
@@ -674,7 +674,8 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             f"📌 پیام‌ها: {msg_row[0]}\n"
             f"🏷 لقب: {title}\n"
             f"⚠️ اخطارها: {warn_count}/{max_warnings}\n"
-            f"📝 اصل: {original_status}"
+            f"📝 اصل: {original_status}\n"
+            f"@link4yu"
         )
 
 
@@ -700,7 +701,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             cursor.execute("SELECT user_guid, name, message_count FROM stats WHERE chat_guid = ? ORDER BY message_count DESC LIMIT 5", (chat_guid,))
             top_users = cursor.fetchall()
             if top_users:
-                msg = "🏆 آمار 5 نفر اول در این گروه:\n"
+                msg = "@link4yu 🏆 آمار 5 نفر اول در این گروه:\n"
                 for i, (u_guid, name_, count) in enumerate(top_users, start=1):
                     msg += f"{i}. {name_} → {count} پیام\n"
                 await update.reply(msg)

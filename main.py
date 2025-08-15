@@ -245,7 +245,7 @@ async def updates(update: Update ):
         VALUES (?, 1)
         """, (chat_guid,))
         conn.commit()
-        await update.reply("✅ ربات در این گروه فعال شد!/n/n @link4yu")
+        await update.reply("✅ ربات در این گروه فعال شد!\n\n @link4yu")
 
     elif text == "ربات خاموش" and (admin_or_not or special_admin):
         cursor.execute("""

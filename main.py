@@ -687,7 +687,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
         if result:
             await update.reply(result[0])
         else:
-            await update.reply("به گروه خوش اومدی 🌹 کانال ربات: @link4yu")
+            await update.reply("به گروه خوش اومدی 🌹\n کانال ربات: @link4yu")
 
     if update.message.text == "یک عضو گروه را ترک کرد." and update.message.type != "Text":
         await update.reply("درم ببند.")

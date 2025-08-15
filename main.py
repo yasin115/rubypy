@@ -703,8 +703,8 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             if top_users:
                 msg = "🏆 آمار 5 نفر اول در این گروه:\n"
                 for i, (u_guid, name_, count) in enumerate(top_users, start=1):
-                    msg += f"{i}. {name_} → {count} پیام\n \n @link4yu"
-                await update.reply(msg)
+                    msg += f"{i}. {name_} → {count} پیام\n"
+                await update.reply(f"{msg} \n @link4yu")
             else:
                 await update.reply("هیچ آماری ثبت نشده.")
         if 'پین' == text or 'pin' == text or text == "سنجاق":

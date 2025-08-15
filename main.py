@@ -239,7 +239,7 @@ async def updates(update: Update ):
                        (user_guid, chat_guid, user_name, 1))
 
     conn.commit()
-    if text == "ربات روشن" and (admin_or_not or special_admin):
+    if text == "ربات روشن" and special_admin:
         cursor.execute("""
         INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
         VALUES (?, 1)
@@ -247,7 +247,7 @@ async def updates(update: Update ):
         conn.commit()
         await update.reply("✅ ربات در این گروه فعال شد! @link4yu")
 
-    elif text == "ربات خاموش" and (admin_or_not or special_admin):
+    elif text == "ربات خاموش" and special_admin:
         cursor.execute("""
             INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
             VALUES (?, 0)
@@ -527,7 +527,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
                 await update.reply("🔊 هیچ کاربری در حال حاضر سکوت نشده است.")
                 return
 
-            message = "@link4yu 🔇 لیست کاربران سکوت شده:\n\n"
+            message = " 🔇 لیست کاربران سکوت شده:\n\n"
 
             for user_guid, until_ts in muted_users:
                 user_info = await bot.get_user_info(user_guid=user_guid)
@@ -687,7 +687,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
         if result:
             await update.reply(result[0])
         else:
-            await update.reply("به گروه خوش اومدی 🌹")
+            await update.reply("به گروه خوش اومدی 🌹 کانال ربات: @link4yu")
 
     if update.message.text == "یک عضو گروه را ترک کرد." and update.message.type != "Text":
         await update.reply("درم ببند.")
@@ -701,9 +701,9 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             cursor.execute("SELECT user_guid, name, message_count FROM stats WHERE chat_guid = ? ORDER BY message_count DESC LIMIT 5", (chat_guid,))
             top_users = cursor.fetchall()
             if top_users:
-                msg = "@link4yu 🏆 آمار 5 نفر اول در این گروه:\n"
+                msg = "🏆 آمار 5 نفر اول در این گروه:\n"
                 for i, (u_guid, name_, count) in enumerate(top_users, start=1):
-                    msg += f"{i}. {name_} → {count} پیام\n"
+                    msg += f"{i}. {name_} → {count} پیام\n \n @link4yu"
                 await update.reply(msg)
             else:
                 await update.reply("هیچ آماری ثبت نشده.")

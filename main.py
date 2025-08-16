@@ -732,7 +732,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
 
             # اجرای عملیات بن
             await update.ban_member(update.object_guid, target_guid)
-            await update.reply(f"✅ کاربر {target_name} با موفقیت بن شد.")
+            await update.reply(f"✅ کاربر {target_name} با موفقیت سیک شد.")
 
         except Exception as e:
             await update.reply(f"❌ خطا در اجرای دستور بن: {str(e)}")

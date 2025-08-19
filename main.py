@@ -8,7 +8,18 @@ from datetime import datetime ,timedelta
 from collections import defaultdict, deque
 import time
 
+import asyncio
 
+async def get_fal_hafez():
+    """تابع برای دریافت فال حافظ در پس‌زمینه"""
+    try:
+        import requests
+        url = "https://hafez-dxle.onrender.com/fal"
+        response = await asyncio.to_thread(requests.get, url, timeout=10)
+        data = response.json()
+        return f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
+    except Exception as e:
+        return "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
 conn = connect('data.db',check_same_thread=False)
 cursor = conn.cursor()
 
@@ -322,7 +333,7 @@ async def updates(update: Update ):
     try:
         admin_or_not = await bot.user_is_admin(update.object_guid, update.author_object_guid)
     except Exception as e:
-        admin_or_not = False
+        f_or_not = False
     
     global last_cleanup_time
     
@@ -1346,16 +1357,24 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
         else:
             await update.reply(choice(ping_msg))
     if text == "فال":
-        try:
-            import requests
-            url = "https://hafez-dxle.onrender.com/fal"
-            response = requests.get(url)
-            data = response.json()  # مستقیماً JSON را به دیکشنری تبدیل میکند
-            data_text = data['interpreter']
-            data_title = data['title']
-            await update.reply(f"📜 فال حافظ:\n\n{data_title}\n\n{data_text}")
-        except:
-            await update.reply("❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید.")
+            # ارسال پیام در حال پردازش
+        processing_msg = await update.reply("⏳ در حال دریافت فال حافظ...")
+        
+        # اجرای در پس‌زمینه
+        async def send_fal_result():
+            try:
+                import requests
+                url = "https://hafez-dxle.onrender.com/fal"
+                response = await asyncio.to_thread(requests.get, url, timeout=10)
+                data = response.json()
+                result = f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
+                await bot.edit_message(update.object_guid, processing_msg.message_id, result)
+            except Exception as e:
+                error_msg = "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
+                await bot.edit_message(update.object_guid, processing_msg.message_id, error_msg)
+
+        # استفاده از ماژول asyncio که در بالای فایل import شده
+        asyncio.create_task(send_fal_result())
     elif text == "حدس عدد":
             # ذخیره بازی در حافظه
         chat_key = f"{chat_guid}_{user_guid}"

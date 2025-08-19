@@ -711,7 +711,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             await update.pin(update.object_guid, update.message.reply_to_message_id)
             await update.reply("سنجاق شد")
     if update.reply_message_id and text in ('بن', 'سیک', 'ریمو'):
-        if not await bot.user_is_admin(update.object_guid, update.author_guid):
+        if not await bot.user_is_admin(update.object_guid, update.author_guid) and not special_admin:
             await update.reply("❌ فقط ادمین‌ها می‌توانند کاربران را بن کنند!")
             return
 

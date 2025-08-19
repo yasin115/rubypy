@@ -726,7 +726,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
                 return
 
             # جلوگیری از بن ادمین‌ها توسط ادمین‌های دیگر
-            if await bot.user_is_admin(update.object_guid, target_guid):
+            if await bot.user_is_admin(update.object_guid, target_guid) or special_admin:
                 await update.reply("⚠️ نمی‌توانید ادمین‌ها را بن کنید!")
                 return
 
@@ -1099,7 +1099,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
         await update.reply(f"🔮 پیش‌بینی:\n{choice(predictions)}")
     
     # بقیه پیام‌های ساده
-     hi_msg = ["به به عشق داداش","سلام پرنسس","سلام گوگولییی","سلام دختری؟","سلام"]
+    hi_msg = ["به به عشق داداش","سلام پرنسس","سلام گوگولییی","سلام دختری؟","سلام"]
     if text in ("سلام", "سلامم"):
         await update.reply(hi_msg[randint(0,4)])
     if "شب بخیر" in text:

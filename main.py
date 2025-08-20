@@ -1155,8 +1155,8 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
 
     # ثبت مالک (با ریپلای) - مثل سابق
     if update.reply_message_id and text == "ثبت مالک":
-        admin_check = await bot.user_is_admin(chat_guid, user_guid)
-        if admin_check:
+       # admin_check = await bot.user_is_admin(chat_guid, user_guid)
+        if special_admin:
             try:
                 reply_author = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
                 target_guid = reply_author.user.user_guid

@@ -795,7 +795,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             target_name = target.user.first_name or "کاربر"
 
             # بررسی آیا کاربر می‌تواند سکوت بدهد
-            if not await can_mute_user(user_guid, target_guid, chat_guid):
+            if await can_mute_user(user_guid, target_guid, chat_guid):
                 await update.reply("❌ نمی‌توانید این کاربر را سکوت کنید!")
                 return
 

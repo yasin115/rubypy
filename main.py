@@ -177,18 +177,6 @@ user_spam_count = defaultdict(int)
 last_cleanup_time = time.time()
 
 
-
-async def get_fal_hafez():
-    """تابع برای دریافت فال حافظ در پس‌زمینه"""
-    try:
-        import asyncio
-        import requests
-        url = "https://hafez-dxle.onrender.com/fal"
-        response = await asyncio.to_thread(requests.get, url, timeout=10)
-        data = response.json()
-        return f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
-    except Exception as e:
-        return "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
@@ -795,7 +783,7 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
             target_name = target.user.first_name or "کاربر"
 
             # بررسی آیا کاربر می‌تواند سکوت بدهد
-            if await can_mute_user(user_guid, target_guid, chat_guid):
+            if not await can_mute_user(user_guid, target_guid, chat_guid):
                 await update.reply("❌ نمی‌توانید این کاربر را سکوت کنید!")
                 return
 
@@ -1221,12 +1209,12 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
     # تنظیم لقب (برای مدیر ربات)
     if update.author_object_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
 
-        import asyncio
 
 
 
         if text.startswith("ارسال به همه"):
             try:
+                import asyncio
                 if not update.reply_message_id:
                     await update.reply("⚠️ لطفاً روی پیامی که می‌خواهید ارسال شود ریپلای کنید")
                     return
@@ -1362,16 +1350,18 @@ nohup python passenger_wsgi.py > output.log 2>&1 &
         processing_msg = await update.reply("⏳ در حال دریافت فال حافظ...")
         
         # اجرای در پس‌زمینه
+        import asyncio
         async def send_fal_result():
             try:
                 import requests
+
                 url = "https://hafez-dxle.onrender.com/fal"
                 response = await asyncio.to_thread(requests.get, url, timeout=10)
                 data = response.json()
                 result = f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
                 await bot.edit_message(update.object_guid, processing_msg.message_id, result)
             except Exception as e:
-                error_msg = "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
+                error_msg = "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید." + str(e)
                 await bot.edit_message(update.object_guid, processing_msg.message_id, error_msg)
 
         # استفاده از ماژول asyncio که در بالای فایل import شده

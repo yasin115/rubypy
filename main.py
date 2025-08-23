@@ -8,18 +8,7 @@ from datetime import datetime ,timedelta
 from collections import defaultdict, deque
 import time
 
-import asyncio
 
-async def get_fal_hafez():
-    """تابع برای دریافت فال حافظ در پس‌زمینه"""
-    try:
-        import requests
-        url = "https://hafez-dxle.onrender.com/fal"
-        response = await asyncio.to_thread(requests.get, url, timeout=10)
-        data = response.json()
-        return f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
-    except Exception as e:
-        return "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
 conn = connect('data.db',check_same_thread=False)
 cursor = conn.cursor()
 
@@ -188,6 +177,18 @@ user_spam_count = defaultdict(int)
 last_cleanup_time = time.time()
 
 
+
+async def get_fal_hafez():
+    """تابع برای دریافت فال حافظ در پس‌زمینه"""
+    try:
+        import asyncio
+        import requests
+        url = "https://hafez-dxle.onrender.com/fal"
+        response = await asyncio.to_thread(requests.get, url, timeout=10)
+        data = response.json()
+        return f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
+    except Exception as e:
+        return "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید."
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی

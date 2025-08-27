@@ -378,7 +378,7 @@ async def updates(update: Update ):
                 return
             
             # بررسی تکرار متن یکسان (3 بار تکرار متوالی)
-            if len(user_message_history[key]) >= 3:
+            if len(user_message_history[key]) >= 5:
                 last_messages = [msg_text for _, msg_text in list(user_message_history[key])[-3:]]
                 
                 if len(set(last_messages)) == 1:  # همه یکسان هستند

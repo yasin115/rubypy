@@ -407,7 +407,7 @@ async def updates(update: Update ):
                 if current_time - last_message_time > 60:
                     user_spam_count[key] = 0
         
-
+        
         if update.reply_message_id and text == "ادمین کن" and await is_special_admin(user_guid, chat_guid):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
@@ -427,7 +427,7 @@ async def updates(update: Update ):
             # اضافه کردن به دیتابیس
             cursor.execute("""
                 INSERT INTO bot_admins (user_guid, chat_guid, added_by, added_time) 
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?)
             """, (target_guid, chat_guid, user_guid, int(time.time())))
             conn.commit()
             

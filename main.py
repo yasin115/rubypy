@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS welcome_messages (
     message TEXT
 )
 """)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS group_rules (
+    chat_guid TEXT PRIMARY KEY,
+    rules_text TEXT
+)
+""")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS mutes (
@@ -1237,7 +1243,56 @@ async def updates(update: Update ):
                 cursor.execute("REPLACE INTO titles (user_guid,chat_guid, title) VALUES (?, ?, ?)", (target_guid, chat_guid, title))
                 conn.commit()
                 await update.reply(f"لقب جدید ثبت شد: {title} برای {target.user.first_name}")
+        # در بخش دستورات ربات (بعد از سایر دستورات)
+        if text.startswith("ثبت قوانین") and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
+            try:
+                rules_text = text.replace("ثبت قوانین", "", 1).strip()
+                
+                if not rules_text:
+                    await update.reply("❌ لطفاً متن قوانین را وارد کنید. مثال: ثبت قوانین 1. ممنوعیت ارسال لینک\n2. ممنوعیت فحش")
+                    return
+                
+                cursor.execute("""
+                    INSERT OR REPLACE INTO group_rules (chat_guid, rules_text)
+                    VALUES (?, ?)
+                """, (chat_guid, rules_text))
+                conn.commit()
+                
+                await update.reply("✅ قوانین گروه با موفقیت ثبت شد.")
+            except Exception as e:
+                await update.reply(f"❌ خطا در ثبت قوانین: {str(e)}")
 
+        elif text == "حذف قوانین" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
+            cursor.execute("DELETE FROM group_rules WHERE chat_guid = ?", (chat_guid,))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                await update.reply("✅ قوانین گروه حذف شد.")
+            else:
+                await update.reply("ℹ️ قوانینی برای این گروه ثبت نشده بود.")
+
+        elif text == "قوانین":
+            cursor.execute("SELECT rules_text FROM group_rules WHERE chat_guid = ?", (chat_guid,))
+            result = cursor.fetchone()
+            
+            if result:
+                await update.reply(f"📜 قوانین گروه:\n\n{result[0]}")
+            else:
+                await update.reply("ℹ️ برای این گروه قوانینی ثبت نشده است.")
+
+        elif text == "قالب قوانین":
+            rules_template = """📋 قوانین پیشنهادی گروه:
+
+        1. 🔞 ارسال محتوای غیراخلاقی ممنوع
+        2. 🔗 ارسال لینک و تبلیغات بدون مجوز ممنوع
+        3. 🚫 توهین و فحاشی به اعضا ممنوع
+        4. 📢 اسپم و ارسال پیام پشت سرهم ممنوع
+        5. 👤 احترام به همه اعضا الزامی است
+        6. 📛 رعایت قوانین جمهوری اسلامی ایران
+
+        ⚠️ در صورت تخلف: اخطار → سکوت → حذف از گروه"""
+            
+            await update.reply(rules_template)
         
         if update.reply_message_id and text == "لقبش چیه":
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
@@ -1322,7 +1377,7 @@ async def updates(update: Update ):
             await update.reply(f"🔮 پیش‌بینی:\n{choice(predictions)}")
         
         # بقیه پیام‌های ساده
-        hi_msg = ["به به عشق داداش","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
+        hi_msg = ["سلاممم نوکرتم صبحت بخیر","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
         if text in ("سلام", "سلامم"):
             await update.reply(choice(hi_msg))
         if "شب بخیر" in text or "شبتون" in text:
@@ -1374,6 +1429,9 @@ async def updates(update: Update ):
 - بن/سیک/ریمو (ریپلای): حذف کاربر از گروه
 - آن بن (ریپلای): لغو بن کاربر
 - کال: ایجاد ویس چت گروهی
+- ثبت قوانین [متن]: تنظیم قوانین گروه
+- حذف قوانین: حذف قوانین گروه
+- قالب قوانین: نمایش قالب پیشنهادی
 
 ⚠️ قوانین اتوماتیک:
 - ارسال لینک: ۳ اخطار (اخطار سوم = بن خودکار)
@@ -1431,7 +1489,24 @@ async def updates(update: Update ):
 
     ⚠️ توجه: این دستورات فقط برای کاربر ویژه اصلی یا مالک گروه قابل استفاده هستند.
     """
+# در بخش راهنماها
+    help_rules = """
+    📋 راهنمای مدیریت قوانین گروه
 
+    - ثبت قوانین [متن]: تنظیم قوانین گروه (فقط ادمین‌ها)
+    - حذف قوانین: حذف قوانین گروه (فقط ادمین‌ها)
+    - قوانین: نمایش قوانین گروه
+    - قالب قوانین: نمایش قالب پیشنهادی قوانین
+
+    📌 نکات:
+    - قوانین برای هر گروه جداگانه ذخیره می‌شود
+    - می‌توانید از قالب پیشنهادی استفاده کنید
+    - قوانین می‌توانند چند خطی باشند
+    """
+
+    # در بخش دستورات راهنما
+    if text == "راهنمای قوانین":
+        await update.reply(help_rules)
     # در بخش دستورات راهنما اضافه کنید
     if text == "راهنمای مدیریت ادمین":
         await update.reply(help_admin_management)

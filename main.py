@@ -1314,10 +1314,10 @@ async def updates(update: Update ):
                     await update.reply(f"❌ خطا در دریافت آمار: {str(e)}")
 
 
-        if update.reply_message_id and text.startswith("تنظیم لقب") and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
+        if update.reply_message_id and (text.startswith("تنظیم لقب") or text.startswith("ثبت لقب")) and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
                 target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
                 target_guid = target.user.user_guid
-                title = text.replace("تنظیم لقب", "").strip()
+                title = text.replace("تنظیم لقب", "").replace("ثبت لقب", "").strip()
                 cursor.execute("REPLACE INTO titles (user_guid,chat_guid, title) VALUES (?, ?, ?)", (target_guid, chat_guid, title))
                 conn.commit()
                 await update.reply(f"لقب جدید ثبت شد: {title} برای {target.user.first_name}")

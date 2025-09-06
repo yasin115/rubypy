@@ -113,7 +113,13 @@ CREATE TABLE IF NOT EXISTS bot_admins (
     PRIMARY KEY (user_guid, chat_guid)
 )
 """)
-
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS force_subscribe (
+    chat_guid TEXT PRIMARY KEY,
+    channel_guid TEXT,
+    is_active INTEGER DEFAULT 1
+)
+""")
 conn.commit()
 
 async def can_mute_user(muter_guid, target_guid, chat_guid):
@@ -204,82 +210,124 @@ async def is_bot_admin(user_guid, chat_guid):
     return result is not None
 
 active_voice_chats = {}
-async def tag_members(update: Update, limit=50):
+async def simple_tag(bot, update, limit=30):
+    """
+    نسخه ساده‌شده برای تگ کردن کاربران
+    """
     try:
         chat_guid = update.object_guid
-
-        # دریافت لیست اعضا
-        try:
-            members = await bot.get_group_all_members(group_guid=chat_guid)
-            if not members or not hasattr(members, 'in_chat_members'):
-                await update.reply("❌ لیست اعضا دریافت نشد")
-                return
-        except Exception as e:
-            await update.reply("❌ خطا در دریافت لیست اعضا")
+        
+        # دریافت اعضا
+        members = await bot.get_group_all_members(group_guid=chat_guid)
+        if not members or not hasattr(members, 'in_chat_members'):
+            await update.reply("❌ لیست اعضا دریافت نشد")
             return
-
-        # دریافت 50 کاربر برتر از دیتابیس
-        cursor.execute("""
-            SELECT user_guid FROM stats 
-            WHERE chat_guid = ? AND user_guid != ?
-            ORDER BY message_count DESC 
-            LIMIT ?
-        """, (chat_guid, update.author_guid, limit))
-        top_users = cursor.fetchall()
-        top_user_guids = [row[0] for row in top_users] if top_users else []
-
-        # ساخت لیست تگ‌ها
+        
+        # انتخاب کاربران به صورت تصادفی
+        all_members = [
+            m for m in members.in_chat_members 
+            if hasattr(m, 'member_guid') and m.member_guid != update.author_guid
+        ]
+        
+        if not all_members:
+            await update.reply("⚠️ هیچ کاربری برای تگ کردن یافت نشد")
+            return
+        
+        # محدود کردن تعداد
+        selected_members = all_members[:limit]
+        
+        # ساخت تگ‌ها
         mentions = []
-        tagged_count = 0
-        already_tagged = set()
-
-        # اول کاربران پرکاربرد را تگ می‌کنیم (به جز خود کاربر)
-        for user_guid in top_user_guids:
-            if user_guid == update.author_guid:
-                continue  # از تگ کردن خود کاربر جلوگیری می‌کنیم
-
-            try:
-                user_info = await bot.get_user_info(user_guid=user_guid)
-                username = getattr(getattr(user_info, 'user', None), 'username', None)
-                if username:
-                    mentions.append(f"@{username}")
-                else:
-                    name = getattr(getattr(user_info, 'user', None), 'first_name', 'کاربر')
-                    mentions.append(f"[{name}](mention:{user_guid})")
-                tagged_count += 1
-                already_tagged.add(user_guid)
-            except Exception as e:
-                continue
-
-        # سپس بقیه اعضا را به ترتیب تصادفی تگ می‌کنیم (به جز خود کاربر)
-        all_members = [m for m in getattr(members, 'in_chat_members', []) 
-                      if m.member_guid not in already_tagged 
-                      and m.member_guid != update.author_guid]
-
-        shuffle(all_members)
-
-        for member in all_members[:limit - tagged_count]:
+        for member in selected_members:
             try:
                 user_info = await bot.get_user_info(user_guid=member.member_guid)
                 username = getattr(getattr(user_info, 'user', None), 'username', None)
+                
                 if username:
                     mentions.append(f"@{username}")
                 else:
                     name = getattr(getattr(user_info, 'user', None), 'first_name', 'کاربر')
                     mentions.append(f"[{name}](mention:{member.member_guid})")
-            except Exception as e:
-                continue
-
+            except Exception:
+                # اگر خطا در دریافت اطلاعات کاربر رخ داد، از GUID استفاده کنید
+                mentions.append(f"[کاربر](mention:{member.member_guid})")
+        
         if not mentions:
-            await update.reply("⚠️ هیچ کاربری برای تگ کردن یافت نشد")
+            await update.reply("⚠️ امکان ایجاد تگ فراهم نشد")
             return
-
-        # ارسال پیام تگ
-        message = "👥 تگ اعضا:\n" + " ".join(mentions[:limit])  # محدودیت نهایی
-        await update.reply(message)
-
+        
+        # ارسال پیام
+        await update.reply("👥 تگ اعضا:\n" + " ".join(mentions))
+        
     except Exception as e:
-        await update.reply(f"❌ خطای سیستمی: لطفاً بعداً تلاش کنید")
+        print(f"خطا در تگ ساده: {str(e)}")
+        await update.reply("❌ خطا در اجرای دستور")
+
+import asyncio
+import logging
+
+async def is_member_of_channel(user_guid: str, channel_guid: str, max_attempts: int = 3, delay: float = 2.0) -> bool:
+    """
+    بررسی عضویت کاربر در کانال با قابلیت بازAttempt و تأخیر
+    
+    Parameters:
+        user_guid (str): شناسه کاربر
+        channel_guid (str): شناسه کانال
+        max_attempts (int): حداکثر تعداد تلاش
+        delay (float): تأخیر بین تلاش‌ها (ثانیه)
+    
+    Returns:
+        bool: True اگر کاربر عضو باشد، False در غیر این صورت
+    """
+    for attempt in range(max_attempts):
+        try:
+            # استفاده از متد get_channel_all_members برای دریافت لیست کامل اعضا
+            members = await bot.get_channel_all_members(
+                channel_guid=channel_guid,
+                search_text=None,  # می‌توانید برای جستجوی خاص استفاده کنید
+                start_id=None
+            )
+            
+            # بررسی وجود کاربر در لیست اعضا
+            if hasattr(members, 'in_chat_members'):
+                for member in members.in_chat_members:
+                    if member.member_guid == user_guid:
+                        return True
+            
+            # اگر کاربر پیدا نشد، تأخیر قبل از تلاش مجدد
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(delay)
+                
+        except Exception as e:
+            logging.error(f"خطا در بررسی عضویت (تلاش {attempt+1}): {str(e)}")
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(delay)
+    
+    return False
+async def check_membership(update: Update, channel_guid: str) -> bool:
+    """بررسی عضویت کاربر و ارسال پیام در صورت نیاز"""
+    user_guid = update.author_guid
+    
+    if not await is_member_of_channel(user_guid, channel_guid):
+        # ارسال پیام عضویت اجباری
+        message = await update.reply(
+            f"📢 برای ارسال پیام در این گروه، باید در کانال ما عضو شوید:\n"
+            f"@link4yu\n\n"
+            f"➖ پس از عضویت، چند ثانیه منتظر بمانید و دوباره تلاش کنید."
+        )
+        
+        # حذف پیام کاربر
+        await update.delete()
+        
+        # حذف پیام ربات بعد از 30 ثانیه
+        await asyncio.sleep(30)
+        try:
+            await bot.delete_messages(update.object_guid, [message.message_id])
+        except:
+            pass
+        
+        return False
+    return True
 @bot.on_message_updates(filters.text)
 async def updates(update: Update ):
     chat_guid = update.object_guid  # شناسه گروه
@@ -461,8 +509,17 @@ async def updates(update: Update ):
             conn.commit()
             
             await update.reply(f"✅ {target_name} از لیست ادمین‌های ربات در این گروه حذف شد.")
-
-
+# بررسی عضویت اجباری قبل از پردازش هر پیام
+        cursor.execute("SELECT channel_guid, is_active FROM force_subscribe WHERE chat_guid = ?", (chat_guid,))
+        force_sub = cursor.fetchone()
+        
+        if force_sub and force_sub[1] == 1:
+            channel_guid = force_sub[0]
+            
+            # کاربران ویژه از بررسی معاف هستند
+            if not await is_special_admin(user_guid, chat_guid) and not await is_bot_admin(user_guid, chat_guid):
+                if not await check_membership(update, channel_guid):
+                    return  # 
         # نمایش لیست ادمین‌های ربات در گروه
         if text == "لیست ادمین ها" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
             cursor.execute("SELECT user_guid, added_by,added_time FROM bot_admins WHERE chat_guid = ?", (chat_guid,))
@@ -519,7 +576,20 @@ async def updates(update: Update ):
                 cursor.execute("DELETE FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
                 conn.commit()
 
+        # فعال کردن عضویت اجباری
+        if text.startswith("فعال سازی عضویت اجباری") and await is_special_admin(user_guid, chat_guid):
+            cursor.execute("""
+                INSERT OR REPLACE INTO force_subscribe (chat_guid, channel_guid, is_active)
+                VALUES (?, ?, 1)
+            """, (chat_guid, "mzadfvcnzcvpfkthsgawichxavnwgwen"))
+            conn.commit()
+            await update.reply("✅ عضویت اجباری فعال شد")
 
+        # غیرفعال کردن عضویت اجباری
+        if text.startswith("غیرفعال سازی عضویت اجباری") and await is_special_admin(user_guid, chat_guid):
+            cursor.execute("UPDATE force_subscribe SET is_active = 0 WHERE chat_guid = ?", (chat_guid,))
+            conn.commit()
+            await update.reply("✅ عضویت اجباری غیرفعال شد")
         if text in ["اپدیت", "update"] and special_admin:
                 try:
                     await update.reply("⏳ در حال دریافت آخرین نسخه از گیت‌هاب...")
@@ -824,7 +894,7 @@ async def updates(update: Update ):
             try:
 
 
-                await tag_members(update)
+                await simple_tag(bot, update, limit=100)
 
 
             except Exception as e:

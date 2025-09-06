@@ -577,11 +577,18 @@ async def updates(update: Update ):
                 conn.commit()
 
         # فعال کردن عضویت اجباری
-        if text.startswith("فعال سازی عضویت اجباری") and await is_special_admin(user_guid, chat_guid):
+        if text.startswith("عضویت فعال") and await is_special_admin(user_guid, chat_guid):
             cursor.execute("""
                 INSERT OR REPLACE INTO force_subscribe (chat_guid, channel_guid, is_active)
                 VALUES (?, ?, 1)
-            """, (chat_guid, "mzadfvcnzcvpfkthsgawichxavnwgwen"))
+            """, (chat_guid, "c0CrS5w07b5bcae81b22d6d344571f0e"))
+            conn.commit()
+            await update.reply("✅ عضویت اجباری فعال شد")
+        if text.startswith("عضویت غیرفعال") and await is_special_admin(user_guid, chat_guid):
+            cursor.execute("""
+                INSERT OR REPLACE INTO force_subscribe (chat_guid, channel_guid, is_active)
+                VALUES (?, ?, 0)
+            """, (chat_guid, "c0CrS5w07b5bcae81b22d6d344571f0e"))
             conn.commit()
             await update.reply("✅ عضویت اجباری فعال شد")
 

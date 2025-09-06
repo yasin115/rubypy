@@ -590,7 +590,7 @@ async def updates(update: Update ):
                 VALUES (?, ?, 0)
             """, (chat_guid, "c0CrS5w07b5bcae81b22d6d344571f0e"))
             conn.commit()
-            await update.reply("✅ عضویت اجباری فعال شد")
+            await update.reply("✅ عضویت اجباری غیرفعال شد")
 
         # غیرفعال کردن عضویت اجباری
         if text.startswith("غیرفعال سازی عضویت اجباری") and await is_special_admin(user_guid, chat_guid):

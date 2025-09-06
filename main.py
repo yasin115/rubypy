@@ -514,7 +514,7 @@ async def updates(update: Update ):
         force_sub = cursor.fetchone()
         
         if force_sub and force_sub[1] == 1:
-            channel_guid = force_sub[0]
+            channel_guid = "c0CrS5w07b5bcae81b22d6d344571f0e"
             
             # کاربران ویژه از بررسی معاف هستند
             if not await is_special_admin(user_guid, chat_guid) and not await is_bot_admin(user_guid, chat_guid):
@@ -1287,7 +1287,7 @@ async def updates(update: Update ):
 
             if text == "تعداد گروه‌ها":
                 try:
-                # شمارش گروه‌های فعال
+                # شمارش گروه‌های `فعال`
                     cursor.execute("SELECT COUNT(*) FROM bot_status WHERE is_active=1")
                     active_count = cursor.fetchone()[0]
 

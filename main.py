@@ -969,7 +969,7 @@ async def updates(update: Update ):
             warn_row = cursor.fetchone()
             warn_count = warn_row[0] if warn_row else 0
 
-            a = await is_bot_admin(user_guid, chat_guid)
+            a = await is_bot_admin(user_guid, chat_guid) or admin_or_not
             user_status = "کاربر ویژه" if a else "کاربر معمولی"
 
             await update.reply(

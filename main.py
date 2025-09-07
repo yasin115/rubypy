@@ -969,10 +969,10 @@ async def updates(update: Update ):
             warn_row = cursor.fetchone()
             warn_count = warn_row[0] if warn_row else 0
 
-        a = await is_bot_admin(user_guid, chat_guid)
-        user_status = "کاربر ویژه" if a else "کاربر معمولی"
+            a = await is_bot_admin(user_guid, chat_guid)
+            user_status = "کاربر ویژه" if a else "کاربر معمولی"
 
-        await update.reply(
+            await update.reply(
             f"📊 آمار شما:\n"
             f"📌 پیام‌ها: {msg_row[0]}\n"
             f"🏷 لقب: {title}\n"
@@ -980,7 +980,7 @@ async def updates(update: Update ):
             f"📝 اصل: {original_status}\n"
             f"👤 وضعیت: {user_status}\n"
             f"@link4yu"
-        )
+            )
 
         if update.message.text == "یک عضو از طریق لینک به گروه افزوده شد." and update.message.type == "Event":
             cursor.execute("SELECT message FROM welcome_messages WHERE chat_guid = ?", (chat_guid,))

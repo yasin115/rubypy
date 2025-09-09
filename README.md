@@ -12,8 +12,8 @@
 از یه ابزار کوچیک شروع شد و رسید به یه **دستیار همه‌فن‌حریف گروهی**! 🚀
 
 _________________________________________________
+![Rubpy Group Manager Bot](https://github.com/user-attachments/assets/14d6eede-5613-4e04-9426-f6ff9eb3227a)
 
-# 🤖 Rubpy Group Manager Bot  
 
 ### 📖 About the Project  
 This project was supposed to be a **small anti-link bot** for  

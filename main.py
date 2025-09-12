@@ -1,3 +1,4 @@
+from email.mime import text
 from rubpy import Client, filters
 from rubpy.types import Update
 from re import search , IGNORECASE
@@ -328,6 +329,51 @@ async def check_membership(update: Update, channel_guid: str) -> bool:
         
         return False
     return True
+import aiohttp
+import asyncio
+
+async def musicfa_api(action, params=None):
+    """
+    تابع برای ارتباط با API موزیکفا
+    
+    Parameters:
+        action (str): نوع عملیات (newest, remix, search, download)
+        params (dict): پارامترهای مورد نیاز برای API
+    
+    Returns:
+        dict: پاسخ API
+    """
+    base_url = "https://shython-api.shayan-heidari.ir/music/musicfa"
+    
+    # ساخت URL بر اساس action
+    if action == "newest":
+        page = params.get("page", 1) if params else 1
+        url = f"{base_url}?action=newest&page={page}"
+    elif action == "remix":
+        page = params.get("page", 1) if params else 1
+        url = f"{base_url}?action=remix&page={page}"
+    elif action == "search":
+        page = params.get("page", 1) if params else 1
+        search_query = params.get("search", "")
+        url = f"{base_url}?action=search&page={page}&search={search_query}"
+    elif action == "download":
+        song_id = params.get("id", "") if params else ""
+        url = f"{base_url}?action=download&id={song_id}"
+    else:
+        return {"error": "عملیات نامعتبر"}
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    return {"error": f"خطا در ارتباط با API: {response.status}"}
+    except Exception as e:
+        return {"error": f"خطا در ارتباط با API: {str(e)}"}
+
+
+
 @bot.on_message_updates(filters.text)
 async def updates(update: Update ):
     chat_guid = update.object_guid  # شناسه گروه
@@ -378,6 +424,7 @@ async def updates(update: Update ):
                     del user_spam_count[key]
             
             last_cleanup_time = current_time
+        
         # فقط برای کاربران عادی بررسی اسپم انجام شود
         if not await is_bot_admin(user_guid, chat_guid) or not admin_or_not:
             current_time = time.time()
@@ -432,7 +479,7 @@ async def updates(update: Update ):
                 return
             
             # بررسی تکرار متن یکسان (3 بار تکرار متوالی)
-            if len(user_message_history[key]) >= 2:
+            if len(user_message_history[key]) >= 3:
                 last_messages = [msg_text for _, msg_text in list(user_message_history[key])[-3:]]
                 
                 if len(set(last_messages)) == 1:  # همه یکسان هستند
@@ -486,7 +533,122 @@ async def updates(update: Update ):
             conn.commit()
             
             await update.reply(f"✅ {target_name} به لیست ادمین‌های ربات در این گروه اضافه شد.")
+        text2 = "@link4yu"
+        if text == "آهنگ جدید":
+            try:
+                a = await update.reply("در حال دریافت جدیدترین آهنگ‌ها...")
+                object_guid = a.object_guid
+                message_id = a.message_id
 
+                page = 1
+                if len(text.split()) > 2:
+                    page = int(text.split()[2])
+                result = await musicfa_api("newest", {"page": page})
+                if "error" in result:
+                    return f"❌ خطا: {result['error']}"
+                elif "result" in result and result["result"]:
+                    
+                    message = "🎵 جدیدترین آهنگ‌ها:\n\n"
+                    for i, song in enumerate(result["result"][:10], 1):
+                        message += f"{i}. {song.get('title', 'بدون عنوان')}\n"
+                        message += f"   📅 تاریخ: {song.get('date', 'نامشخص')}\n"
+                        message += f"   🔗 دانلود: /dl_{song.get('id', '')}\n\n"
+                    message += text2
+            
+                    await bot.edit_message(object_guid,message_id, message)
+
+                else:
+                    await bot.edit_message(object_guid, message_id, "❌ هیچ آهنگی یافت نشد")
+            except Exception as e:
+                await bot.edit_message(object_guid, message_id, f"❌ خطا در دریافت آهنگ‌ها: {str(e)}")
+
+        elif text.startswith("ریمیکس"):
+            
+            try:
+                a = await update.reply("در حال دریافت آهنگ‌های ریمیکس...")
+                object_guid = a.object_guid
+                message_id = a.message_id
+                page = 1
+                if len(text.split()) > 1:
+                    page = int(text.split()[1])
+                
+                result = await musicfa_api("remix", {"page": page})
+                
+                if "error" in result:
+                    return f"❌ خطا: {result['error']}"
+                elif "result" in result and result["result"]:
+                    message = "🎶 آهنگ‌های ریمیکس:\n\n"
+                    for i, song in enumerate(result["result"][:10], 1):
+                        message += f"{i}. {song.get('title', 'بدون عنوان')}\n"
+                        message += f"   📅 تاریخ: {song.get('date', 'نامشخص')}\n"
+                        message += f"   🔗 دانلود: /dl_{song.get('id', '')}\n\n"
+                    message += text2
+                    await bot.edit_message(object_guid, message_id, message)
+                else:
+                    await bot.edit_message(object_guid, message_id, "❌ هیچ آهنگ ریمیکسی یافت نشد")
+            except Exception as e:
+                await bot.edit_message(object_guid, message_id, f"❌ خطا در دریافت ریمیکس‌ها: {str(e)}")
+
+        elif text.startswith("جستجو "):
+            try:
+                a = await update.reply("در حال جستجو...")
+                object_guid = a.object_guid
+                message_id = a.message_id
+                search_query = text.replace("جستجو ", "", 1).strip()
+                if not search_query:
+                    return "❌ لطفاً عبارت جستجو را وارد کنید"
+                
+                result = await musicfa_api("search", {"search": search_query, "page": 1})
+                
+                if "error" in result:
+                    return f"❌ خطا: {result['error']}"
+                elif "result" in result and result["result"]:
+                    message = f"🔍 نتایج جستجو برای '{search_query}':\n\n"
+                    for i, song in enumerate(result["result"][:10], 1):
+                        message += f"{i}. {song.get('title', 'بدون عنوان')}\n"
+                        message += f"   📅 تاریخ: {song.get('date', 'نامشخص')}\n"
+                        message += f"   🔗 دانلود: /dl_{song.get('id', '')}\n\n"
+                    message += text2
+                    await bot.edit_message(object_guid, message_id, message)
+                else:
+                    await bot.edit_message(object_guid, message_id, "❌ هیچ نتیجه‌ای یافت نشد")
+            except Exception as e:
+                await bot.edit_message(object_guid, message_id, f"❌ خطا در جستجو: {str(e)}")
+
+        elif text.startswith("/dl_"):
+            try:
+                a = await update.reply("در حال دریافت آهنگ...")
+                object_guid = a.object_guid
+                message_id = a.message_id
+                song_id = text.replace("/dl_", "", 1).strip()
+                if not song_id.isdigit():
+                    return "❌ شناسه آهنگ نامعتبر است"
+                
+                result = await musicfa_api("download", {"id": song_id})
+                
+                if "error" in result:
+                    return f"❌ خطا: {result['error']}"
+                elif "result" in result and result["result"]:
+                    song_data = result["result"]
+                    import urllib.parse
+                    parsed_url = urllib.parse.urlparse(song_data.get('320'))
+                    encoded_path = urllib.parse.quote(parsed_url.path)
+                    encoded_url = urllib.parse.urlunparse((
+                        parsed_url.scheme,
+                        parsed_url.netloc,
+                        encoded_path,
+                        parsed_url.params,
+                        parsed_url.query,
+                        parsed_url.fragment
+                    ))
+                    message = f"🎵 {encoded_url}\n\n{text2} "
+                    await bot.edit_message(object_guid, message_id, message)
+                else:
+                    await bot.edit_message(object_guid, message_id, "❌ آهنگ یافت نشد")
+            except Exception as e:
+                await bot.edit_message(object_guid, message_id, f"❌ خطا در دانلود: {str(e)}")
+
+        # اضافه کردن import مورد نیاز در بالای فایل
         # حذف کاربر از ادمین‌های ربات (ریپلای)
         if update.reply_message_id and text == "حذف ادمین" and await is_special_admin(user_guid, chat_guid):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
@@ -1103,7 +1265,7 @@ async def updates(update: Update ):
             # دریافت تنظیمات حداکثر اخطار برای این گروه
             cursor.execute("SELECT max_warnings FROM warning_settings WHERE chat_guid = ?", (chat_guid,))
             setting = cursor.fetchone()
-            max_warnings = setting[0] if setting else 3  # پیش‌فرض 3
+            max_warnings = setting[0] if setting else 2  # پیش‌فرض 3
 
             reply_msg = await update.reply(f"❌ اخطار {warning_count}/{max_warnings} به {username} به دلیل ارسال لینک")
             await update.delete()

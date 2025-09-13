@@ -372,6 +372,24 @@ async def musicfa_api(action, params=None):
     except Exception as e:
         return {"error": f"خطا در ارتباط با API: {str(e)}"}
 
+async def get_shython_joke(joke_type):
+    """
+    دریافت جوک از API شایتون
+    انواع جوک: dght_krdn, etrf_mknm, random
+    """
+    base_url = "https://shython-api.shayan-heidari.ir/joke"
+    url = f"{base_url}/{joke_type}"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('text', 'جوک دریافت شد')
+                else:
+                    return "خطا در دریافت جوک"
+    except Exception as e:
+        return f"خطا در ارتباط با API: {str(e)}"
 
 
 @bot.on_message_updates(filters.text)
@@ -508,7 +526,31 @@ async def updates(update: Update ):
                 if current_time - last_message_time > 60:
                     user_spam_count[key] = 0
         
+        if text == "دقت کردین":
+            joke = await get_shython_joke('dght_krdn')
+            await update.reply(f"😂 دقت کردین:\n{joke}")
         
+        elif text == "اعتراف میکنم":
+            joke = await get_shython_joke('etrf_mknm')
+            await update.reply(f"😅 اعتراف میکنم:\n{joke}")
+        
+        elif text == "جوک تصادفی":
+            joke = await get_shython_joke('random')
+            await update.reply(f"🎲 جوک تصادفی:\n{joke}")
+        
+        elif text == "جوک" or text == "joke":
+            # انتخاب تصادفی بین انواع جوک
+            joke_types = ['dght_krdn', 'etrf_mknm', 'random']
+            selected_type = choice(joke_types)
+            
+            joke = await get_shython_joke(selected_type)
+            
+            if selected_type == 'dght_krdn':
+                await update.reply(f"😂 دقت کردین:\n{joke}")
+            elif selected_type == 'etrf_mknm':
+                await update.reply(f"😅 اعتراف میکنم:\n{joke}")
+            else:
+                await update.reply(f"🎲 جوک تصادفی:\n{joke}")
         if update.reply_message_id and text == "ادمین کن" and await is_special_admin(user_guid, chat_guid):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid

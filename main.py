@@ -1,4 +1,4 @@
-.from email.mime import text
+from email.mime import text
 from rubpy import Client, filters
 from rubpy.types import Update
 from re import search , IGNORECASE

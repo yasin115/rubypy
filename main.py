@@ -191,7 +191,7 @@ last_cleanup_time = time.time()
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
+    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0I64yb07f00c981b3a4f39bed68443a' or user_guid == 'u0IsWDl0c017999078ea2f8ba373cad5':
         return True
     
     # اگر chat_guid ارائه شده باشد، بررسی مالک گروه

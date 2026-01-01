@@ -191,7 +191,7 @@ last_cleanup_time = time.time()
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == "u0I64yb07f00c981b3a4f39bed68443a" or user_guid == "u0IsWDl0c017999078ea2f8ba373cad5":
+    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65":
         return True
     
     # اگر chat_guid ارائه شده باشد، بررسی مالک گروه
@@ -539,7 +539,6 @@ async def updates(update: Update ):
             await update.reply(f"🎲 جوک تصادفی:\n{joke}")
         
         elif text == "جوک" or text == "joke":
-
             # انتخاب تصادفی بین انواع جوک
             joke_types = ['dght_krdn', 'etrf_mknm', 'random']
             selected_type = choice(joke_types)
@@ -825,7 +824,7 @@ async def updates(update: Update ):
                     restart_script = """
                     #!/bin/bash
                     sleep 3
-                    nohup python passenger_wsgi.py > output.log 2>&1 &
+                    nohup python main.py > output.log 2>&1 &
                     """
                     
                     with open("restart.sh", "w") as f:

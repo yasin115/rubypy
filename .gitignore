@@ -6,3 +6,5 @@
 /temps
 /new
 data.db
+restart.sh
+output.log

@@ -144,7 +144,7 @@ async def is_group_owner(user_guid, chat_guid):
 async def is_bot_admin(user_guid):
     """بررسی آیا کاربر ادمین ربات است"""
     # کاربر ویژه اصلی همیشه ادمین است
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0G1LJo0d0a65015406651416429c708':
+    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0IgIPh080a461a73151911c296cd707':
         return True
     # بررسی در دیتابیس
     cursor.execute("SELECT user_guid FROM bot_admins WHERE user_guid = ?", (user_guid,))
@@ -191,7 +191,7 @@ last_cleanup_time = time.time()
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0I64yb07f00c981b3a4f39bed68443a' or user_guid == 'u0IsWDl0c017999078ea2f8ba373cad5' or user_guid == 'u0G1LJo0d0a65015406651416429c708':
+    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0I64yb07f00c981b3a4f39bed68443a' or user_guid == 'u0IsWDl0c017999078ea2f8ba373cad5' or user_guid == 'u0IgIPh080a461a73151911c296cd707':
         return True
     
     # اگر chat_guid ارائه شده باشد، بررسی مالک گروه

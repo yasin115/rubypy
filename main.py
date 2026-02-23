@@ -402,14 +402,14 @@ async def updates(update: Update ):
     user_guid = update.author_guid
     text = update.message.text.strip()
     special_admin = await is_special_admin(update.author_guid)
-    if text == "ربات روشن" and special_admin:
+    if text == "ربات روشن" :
         cursor.execute("""
             INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
             VALUES (?, 1)
             """, (chat_guid,))
         conn.commit()
         await update.reply("✅ ربات در این گروه فعال شد! @link4yu")
-    elif text == "ربات خاموش" and special_admin:
+    elif text == "ربات خاموش":
         cursor.execute("""
                 INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
                 VALUES (?, 0)

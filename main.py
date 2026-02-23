@@ -801,7 +801,7 @@ async def updates(update: Update ):
             cursor.execute("UPDATE force_subscribe SET is_active = 0 WHERE chat_guid = ?", (chat_guid,))
             conn.commit()
             await update.reply("✅ عضویت اجباری غیرفعال شد")
-        if text in ["اپدیت", "update"] and special_admin:
+        if text in ["اپدیت", "update"]:
                 try:
                     await update.reply("⏳ در حال دریافت آخرین نسخه از گیت‌هاب...")
                     

@@ -551,7 +551,7 @@ async def updates(update: Update ):
                 await update.reply(f"😅 اعتراف میکنم:\n{joke}")
             else:
                 await update.reply(f"🎲 جوک تصادفی:\n{joke}")
-        if update.reply_message_id and text == "ادمین کن" and await is_special_admin(user_guid, chat_guid):
+        if update.reply_message_id and text == "ادمین کن" and( special_admin or admin_or_not):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid
             target_name = target.user.first_name or "کاربر"

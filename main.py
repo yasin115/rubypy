@@ -2,7 +2,7 @@ from email.mime import text
 from rubpy import Client, filters
 from rubpy.types import Update
 from re import search , IGNORECASE
-from random import shuffle ,choice ,randint
+from random import shuffle ,choice as ch ,randint
 from sqlite3 import connect
 from jdatetime import date , datetime as jd
 from datetime import datetime ,timedelta
@@ -210,7 +210,7 @@ async def is_bot_admin(user_guid, chat_guid):
     result = cursor.fetchone()
     return result is not None
 
-active_voice_chats = {}
+
 async def simple_tag(bot, update, limit=30):
     """
     نسخه ساده‌شده برای تگ کردن کاربران
@@ -541,7 +541,7 @@ async def updates(update: Update ):
         elif text == "جوک" or text == "joke":
             # انتخاب تصادفی بین انواع جوک
             joke_types = ['dght_krdn', 'etrf_mknm', 'random']
-            selected_type = choice(joke_types)
+            selected_type = ch(joke_types)
             
             joke = await get_shython_joke(selected_type)
             
@@ -807,7 +807,7 @@ async def updates(update: Update ):
                     
                     # URL فایل اصلی در گیت‌هاب
                     github_url = "https://raw.githubusercontent.com/yasin115/rubypy/refs/heads/main/main.py"
-                    temp_file = "bot_new.py"
+                    temp_file = "main.py"
                     success = await download_file(github_url, temp_file)
                     
                     if not success:
@@ -916,18 +916,9 @@ async def updates(update: Update ):
             await update.reply(f"✅ اصل {target_name} حذف شد")
         if text == "کال" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
             try:
-                # بررسی وجود ویس چت فعال
-                if chat_guid in active_voice_chats:
-                    await update.reply("⚠️ از قبل یک ویس چت فعال دارید!")
-                    return
-
+                
                 result = await bot.create_group_voice_chat(group_guid=chat_guid)
 
-                # ذخیره اطلاعات ویس چت
-                active_voice_chats[chat_guid] = {
-                    'voice_chat_id': result.voice_chat_id,
-                    'title': 'ویس چت گروه'
-                }
 
                 await update.reply("🎤 ویس چت با موفقیت ایجاد شد!\nبرای پیوستن از دکمه ویس چت در گروه استفاده کنید.")
             except Exception as e:
@@ -1359,7 +1350,7 @@ async def updates(update: Update ):
 
 
         
-        if update.reply_message_id and text == "ثبت مالک" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
+        if update.reply_message_id and text == "ثبت مالک" and (await is_bot_admin(user_guid, chat_guid)):
                 try:
                     reply_author = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
                     target_guid = reply_author.user.user_guid
@@ -1596,14 +1587,13 @@ async def updates(update: Update ):
                 await update.reply("برای شما لقبی ثبت نشده.")
 
         
-        ping_msg = ["دستور بده","جااانم","بگو قشنگم","بگو کار دارم","بگو عشق من"]
         if text in ["ping", "ربات", "پینگ"]:
-            cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
-            result = cursor.fetchone()
-            if result:
-                await update.reply(f"جوونم {result[0]}")
-            else:
-                await update.reply(choice(ping_msg))
+            await update.reply("چه خبر؟ " )
+            # cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+            # result = cursor.fetchone()
+            # if result:
+                # await update.reply(f"جوونم {result[0]}")
+            # else:
         if text == "فال":
                 
             processing_msg = await update.reply("⏳ در حال دریافت فال حافظ...")
@@ -1655,12 +1645,12 @@ async def updates(update: Update ):
                 "در کارهایت موفق خواهی شد",
                 "مراقب فرصت‌های پیش رو باش"
             ]
-            await update.reply(f"🔮 پیش‌بینی:\n{choice(predictions)}")
+            await update.reply(f"🔮 پیش‌بینی:\n{ch(predictions)}")
         
         # بقیه پیام‌های ساده
         hi_msg = ["سلاممم نوکرتم صبحت بخیر","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
         if text in ("سلام", "سلامم"):
-            await update.reply(choice(hi_msg))
+            await update.reply(ch(hi_msg))
         if "شب بخیر" in text or "شبتون" in text:
             await update.reply("خوب بخوابی :)")
 
@@ -2027,8 +2017,8 @@ async def updates(update: Update ):
     ]
 
     if text == "چلنج" or text == "شانسی":
-        from random import choice
-        await update.reply(choice(challenges))
+        from random import choice as ch
+        await update.reply(ch(challenges))
 
 
 bot.run()

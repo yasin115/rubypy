@@ -1359,8 +1359,7 @@ async def updates(update: Update ):
 
 
         
-        if update.reply_message_id and text == "ثبت مالک":
-            if special_admin:
+        if update.reply_message_id and text == "ثبت مالک" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
                 try:
                     reply_author = await update.get_reply_author(chat_guid, update.message.reply_to_message_id)
                     target_guid = reply_author.user.user_guid
@@ -1371,8 +1370,8 @@ async def updates(update: Update ):
                     await update.reply(f"✅ {target_name} به عنوان مالک گروه ثبت شد.")
                 except Exception as e:
                     await update.reply(f"❗ خطا در ثبت مالک: {str(e)}")
-            else:
-                await update.reply("❗ فقط ادمین‌ها می‌تونن مالک رو تنظیم کنن.")
+            
+                # await update.reply("❗ فقط ادمین‌ها می‌تونن مالک رو تنظیم کنن.")
         if update.reply_message_id and text == "حذف لقب" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
                 target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
                 target_guid = target.user.user_guid

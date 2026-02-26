@@ -841,7 +841,7 @@ async def updates(update: Update ):
         # ثبت اصل توسط ادمین (با ریپلای بر پیام کاربر - نسخه گروه‌بندی شده)
         if update.reply_message_id and text == "ثبت اصل":
             # بررسی ادمین بودن
-            if not await is_bot_admin(user_guid, chat_guid) or not admin_or_not:
+            if not await is_bot_admin(user_guid, chat_guid) or admin_or_not or special_admin:
                 await update.reply("❌ فقط ادمین‌ها می‌توانند ثبت اصل انجام دهند")
                 return
 

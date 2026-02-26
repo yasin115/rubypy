@@ -402,14 +402,14 @@ async def updates(update: Update ):
     user_guid = update.author_guid
     text = update.message.text.strip()
     special_admin = await is_special_admin(update.author_guid)
-    if text == "ربات روشن" :
+    if text == "ربات روشن" and special_admin :
         cursor.execute("""
             INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
             VALUES (?, 1)
             """, (chat_guid,))
         conn.commit()
         await update.reply("✅ ربات در این گروه فعال شد! @link4yu")
-    elif text == "ربات خاموش":
+    elif text == "ربات خاموش" and special_admin:
         cursor.execute("""
                 INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
                 VALUES (?, 0)
@@ -801,7 +801,7 @@ async def updates(update: Update ):
             cursor.execute("UPDATE force_subscribe SET is_active = 0 WHERE chat_guid = ?", (chat_guid,))
             conn.commit()
             await update.reply("✅ عضویت اجباری غیرفعال شد")
-        if text in ["اپدیت", "update"]:
+        if text in ["اپدیت", "update"] and special_admin:
                 try:
                     await update.reply("⏳ در حال دریافت آخرین نسخه از گیت‌هاب...")
                     
@@ -1204,32 +1204,24 @@ async def updates(update: Update ):
                     await update.reply(f"{msg} \n @link4yu")
                 else:
                     await update.reply("هیچ آماری ثبت نشده.")
-            if 'پین' == text or 'pin' == text or text == "سنجاق":
+            if 'پین' == text or 'pin' == text or text == "سنجاق" and (special_admin or is_bot_admin(user_guid, chat_guid) or admin_or_not):
                 await update.pin(update.object_guid, update.message.reply_to_message_id)
                 await update.reply("سنجاق شد")
         if update.reply_message_id and text in ('بن', 'سیک', 'ریمو'):
-            if not (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
-                await update.reply("❌ فقط ادمین‌ها می‌توانند کاربران را بن کنند!")
-                return
-
+            
             try:
                 target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
                 target_guid = target.user.user_guid
                 target_name = target.user.first_name or "کاربر"
 
                 # جلوگیری از بن خود ربات یا کاربران ویژه
-                if target_guid == update.user_guid or special_admin:
+                if target_guid == special_admin or target_guid == admin_or_not:
                     await update.reply("🤖 این کاربر قابل بن کردن نیست!")
                     return
-
-                # جلوگیری از بن ادمین‌ها توسط ادمین‌های دیگر
-                if await bot.user_is_admin(update.object_guid, target_guid) or special_admin:
-                    await update.reply("⚠️ نمی‌توانید ادمین‌ها را بن کنید!")
-                    return
-
+                else:
                 # اجرای عملیات بن
-                await update.ban_member(update.object_guid, target_guid)
-                await update.reply(f"✅ کاربر {target_name} با موفقیت سیک شد.")
+                    await update.ban_member(update.object_guid, target_guid)
+                    await update.reply(f"✅ کاربر {target_name} با موفقیت سیک شد.")
 
             except Exception as e:
                 await update.reply(f"❌ خطا در اجرای دستور بن: {str(e)}")

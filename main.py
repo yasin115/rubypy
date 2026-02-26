@@ -191,9 +191,10 @@ last_cleanup_time = time.time()
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0I64yb07f00c981b3a4f39bed68443a' or user_guid == 'u0IsWDl0c017999078ea2f8ba373cad5' or user_guid == 'u0IgIPh080a461a73151911c296cd707':
+    if user_guid == "u0IsWDl0c017999078ea2f8ba373cad5" or user_guid == "u0B6lVH09f6b34127e83265bc396e72a":
         return True
     
+
     # اگر chat_guid ارائه شده باشد، بررسی مالک گروه
     if chat_guid:
         return await is_group_owner(user_guid, chat_guid)
@@ -401,8 +402,9 @@ async def updates(update: Update ):
         admin_or_not = False
     user_guid = update.author_guid
     text = update.message.text.strip()
-    special_admin = await is_special_admin(update.author_guid)
+    special_admin = await is_special_admin(user_guid)
     if text == "ربات روشن" and special_admin :
+        
         cursor.execute("""
             INSERT OR REPLACE INTO bot_status (chat_guid, is_active)
             VALUES (?, 1)
@@ -839,12 +841,9 @@ async def updates(update: Update ):
                     print(f"Update error: {str(e)}")
             
         # ثبت اصل توسط ادمین (با ریپلای بر پیام کاربر - نسخه گروه‌بندی شده)
-        if update.reply_message_id and text == "ثبت اصل":
+        if update.reply_message_id and text == "ثبت اصل" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not or special_admin):
             # بررسی ادمین بودن
-            if not await is_bot_admin(user_guid, chat_guid) or not admin_or_not or not special_admin:
-                await update.reply("❌ فقط ادمین‌ها می‌توانند ثبت اصل انجام دهند")
-                return
-
+            
             try:
                 # دریافت پیام اصلی که ریپلای شده
                 replied_msg = await bot.get_messages_by_id(
@@ -914,6 +913,8 @@ async def updates(update: Update ):
             conn.commit()
 
             await update.reply(f"✅ اصل {target_name} حذف شد")
+        if text == "kir":
+            await update.reply(user_guid)
         if text == "کال" and (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
             try:
                 
@@ -1640,9 +1641,9 @@ async def updates(update: Update ):
             await update.reply(f"🔮 پیش‌بینی:\n{ch(predictions)}")
         
         # بقیه پیام‌های ساده
-        hi_msg = ["سلاممم نوکرتم صبحت بخیر","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
+        # hi_msg = ["سلاممم نوکرتم صبحت بخیر","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
         if text in ("سلام", "سلامم"):
-            await update.reply(ch(hi_msg))
+            await update.reply("سلاممم نوکرتم صبحت بخیر")
         if "شب بخیر" in text or "شبتون" in text:
             await update.reply("خوب بخوابی :)")
 

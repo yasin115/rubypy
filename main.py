@@ -1630,7 +1630,7 @@ async def updates(update: Update ):
                 await update.reply(f"🎉 آفرین! درست حدس زدی. عدد {number} بود!")
                 del active_games[chat_key]
         
-        elif text == "kir":
+        elif text == "ki":
             predictions = [
                 "فردا روز خوبی برای تو خواهد بود",
                 "هفته آینده اتفاق خوشایندی برایت می‌افتد",

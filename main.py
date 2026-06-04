@@ -1222,7 +1222,7 @@ async def updates(update: Update ):
                 else:
                 # اجرای عملیات بن
                     await update.ban_member(update.object_guid, target_guid)
-                    await update.reply(f"✅ کاربر {target_name} با موفقیت سیک شد.")
+                    await update.reply(f"✅ کاربر {target_name} با موفقیت حذف شد.")
 
             except Exception as e:
                 await update.reply(f"❌ خطا در اجرای دستور بن: {str(e)}")

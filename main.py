@@ -971,7 +971,7 @@ async def updates(update: Update ):
                     message_id=message_id,
                     text=error_msg
                 )
-        if text == "تایم":
+        if text == "تایم" or text == "ساعت":
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
             await update.reply(f"⏰ ساعت فعلی: {current_time}")
@@ -2009,7 +2009,7 @@ async def updates(update: Update ):
         "💜 شمارتو بده"
     ]
 
-    if text == "چلنج" or text == "شانسی":
+    if text == "چلنج" or text == "شانسی" or text == "چالش":
         from random import choice as ch
         await update.reply(ch(challenges))
 

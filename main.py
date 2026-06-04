@@ -1,5 +1,5 @@
 from email.mime import text
-from turtle import update
+
 from rubpy import Client, filters
 from rubpy.types import Update
 from re import search , IGNORECASE

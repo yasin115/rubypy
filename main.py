@@ -1580,9 +1580,9 @@ async def updates(update: Update ):
             else:
                 await update.reply("برای شما لقبی ثبت نشده.")
 
-        
+        bot_words = ['جانم','دوباره تویی که','بگو کار دارم','هاااا','بگو قشنگم','جووون']
         if text in ["ping", "ربات", "پینگ"]:
-            await update.reply("چه خبر؟ " )
+            await update.reply()
             # cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
             # result = cursor.fetchone()
             # if result:
@@ -1630,7 +1630,7 @@ async def updates(update: Update ):
                 await update.reply(f"🎉 آفرین! درست حدس زدی. عدد {number} بود!")
                 del active_games[chat_key]
         
-        elif text == "پیش بینی":
+        if text == "پیش بینی":
             predictions = [
                 "فردا روز خوبی برای تو خواهد بود",
                 "هفته آینده اتفاق خوشایندی برایت می‌افتد",
@@ -1643,8 +1643,8 @@ async def updates(update: Update ):
         
         # بقیه پیام‌های ساده
         # hi_msg = ["سلاممم نوکرتم صبحت بخیر","سلام بهونه قشنگ زندگیم","سلام گوگولییی","سلام دختری؟","سلام پسری؟","سلام"]
-        if text in ("سلام", "سلامم"):
-            await update.reply("سلاممم نوکرتم صبحت بخیر")
+        # if text in ("سلام", "سلامم"):
+        #     await update.reply("سلاممم نوکرتم صبحت بخیر")
         if "شب بخیر" in text or "شبتون" in text:
             await update.reply("خوب بخوابی :)")
 
@@ -1774,8 +1774,7 @@ async def updates(update: Update ):
         await update.reply(help_fun)
     elif text == "راهنمای ادمین":
         await update.reply(help_admin)
-    elif text == "راهنمای مدیریت ادمین" or text == "راهنمای مالک":
-        await update.reply(help_bot_admins)
+
     elif text == "راهنما" or text == "دستورات":
         await update.reply(help_text)
     elif text == "راهنمای لقب":

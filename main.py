@@ -3,7 +3,7 @@ from email.mime import text
 from rubpy import Client, filters
 from rubpy.types import Update
 from re import search , IGNORECASE
-from random import shuffle ,choice as ch ,randint
+from random import random, shuffle ,choice as ch ,randint
 from sqlite3 import connect
 from jdatetime import date , datetime as jd
 from datetime import datetime ,timedelta
@@ -1582,6 +1582,7 @@ async def updates(update: Update ):
 
         bot_words = ['جانم','دوباره تویی که','بگو کار دارم','هاااا','بگو قشنگم','جووون']
         if text in ["ping", "ربات", "پینگ"]:
+            from random import choice as ch
             await update.reply(ch(bot_words))
             # cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
             # result = cursor.fetchone()

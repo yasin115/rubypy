@@ -1582,7 +1582,7 @@ async def updates(update: Update ):
 
         bot_words = ['جانم','دوباره تویی که','بگو کار دارم','هاااا','بگو قشنگم','جووون']
         if text in ["ping", "ربات", "پینگ"]:
-            await update.reply()
+            await update.reply(ch(bot_words))
             # cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
             # result = cursor.fetchone()
             # if result:

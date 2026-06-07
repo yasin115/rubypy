@@ -447,7 +447,27 @@ async def updates(update: Update ):
             last_cleanup_time = current_time
         
         # فقط برای کاربران عادی بررسی اسپم انجام شود
-        if not await is_bot_admin(user_guid, chat_guid) or not admin_or_not:
+# === ۱. بررسی وضعیت سکوت کاربر (باید قبل از سیستم ضد اسپم باشه) ===
+        now_ts = int(time.time())
+        cursor.execute("SELECT until FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+        mute_data = cursor.fetchone()
+        
+        if mute_data:
+            until = mute_data[0]
+            if until is None or until > now_ts:
+                # کاربر هنوز تو زمان سکوته -> پیامش درجا پاک میشه و دیگه پردازش نمیشه
+                await update.delete()
+                return 
+            else:
+                # زمان سکوت تموم شده -> از دیتابیس پاک میشه و اعلام میشه
+                cursor.execute("DELETE FROM mutes WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+                conn.commit()
+                await update.reply(f"🔊 {user_name} عزیز، زمان سکوت شما به پایان رسید. اکنون می‌توانید پیام ارسال کنید.")
+
+
+        # === ۲. سیستم ضد اسپم (فقط برای کاربران عادی) ===
+        # شرط اصلاح شده: اگر کاربر ادمین ربات "یا" ادمین گروه "نبود"، این بخش اجرا بشه
+        if not (await is_bot_admin(user_guid, chat_guid) or admin_or_not):
             current_time = time.time()
             key = f"{user_guid}_{chat_guid}"
             
@@ -467,13 +487,14 @@ async def updates(update: Update ):
             
             # بررسی اسپم تعداد پیام (بیش از 5 پیام در 10 ثانیه)
             if len(user_message_history[key]) > 5:
-                # افزایش شمارنده اسپم
                 user_spam_count[key] = user_spam_count.get(key, 0) + 1
+                
+                # اول پیام کاربر رو پاک می‌کنیم تا سریع‌تر انجام بشه
+                await update.delete()
                 
                 # تعیین مدت سکوت بر اساس تعداد تخلفات
                 if user_spam_count[key] == 1:
                     await update.reply(f"⚠️ {user_name} لطفاً از ارسال پیام‌های پشت سر هم خودداری کنید.")
-                    await update.delete()
                 elif user_spam_count[key] == 2:
                     mute_duration = 120  # 2 دقیقه
                     mute_until = int(current_time) + mute_duration
@@ -482,9 +503,7 @@ async def updates(update: Update ):
                         VALUES (?, ?, ?)
                     """, (user_guid, chat_guid, mute_until))
                     conn.commit()
-                    
-                    await update.reply(f"🚫 {user_name} به مدت 2 دقیقه سکوت شد.")
-                    await update.delete()
+                    await update.reply(f"🚫 {user_name} به دلیل اسپم به مدت 2 دقیقه سکوت شد.")
                 else:
                     mute_duration = 600  # 10 دقیقه
                     mute_until = int(current_time) + mute_duration
@@ -493,9 +512,7 @@ async def updates(update: Update ):
                         VALUES (?, ?, ?)
                     """, (user_guid, chat_guid, mute_until))
                     conn.commit()
-                    
-                    await update.reply(f"🚫 {user_name} به مدت 10 دقیقه سکوت شد.")
-                    await update.delete()
+                    await update.reply(f"🚫 {user_name} به دلیل ادامه اسپم به مدت 10 دقیقه سکوت شد.")
                 
                 return
             
@@ -503,7 +520,10 @@ async def updates(update: Update ):
             if len(user_message_history[key]) >= 3:
                 last_messages = [msg_text for _, msg_text in list(user_message_history[key])[-3:]]
                 
-                if len(set(last_messages)) == 1:  # همه یکسان هستند
+                if len(set(last_messages)) == 1:  # همه متون یکسان هستند
+                    # اول پیام رو پاک می‌کنیم
+                    await update.delete()
+                    
                     mute_duration = 300  # 5 دقیقه
                     mute_until = int(current_time) + mute_duration
                     cursor.execute("""
@@ -513,7 +533,6 @@ async def updates(update: Update ):
                     conn.commit()
                     
                     await update.reply(f"🚫 {user_name} به دلیل ارسال متن تکراری به مدت 5 دقیقه سکوت شد.")
-                    await update.delete()
                     
                     # پاکسازی تاریخچه
                     if key in user_message_history:
@@ -523,6 +542,11 @@ async def updates(update: Update ):
                     
                     return
             
+            # ریست شمارنده اسپم پس از 1 دقیقه عدم فعالیت
+            if key in user_spam_count and len(user_message_history[key]) > 0:
+                last_message_time = list(user_message_history[key])[-1][0]
+                if current_time - last_message_time > 60:
+                    user_spam_count[key] = 0
             # ریست شمارنده اسپم پس از 1 دقیقه عدم فعالیت
             if key in user_spam_count and len(user_message_history[key]) > 0:
                 last_message_time = list(user_message_history[key])[-1][0]

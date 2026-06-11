@@ -1973,13 +1973,14 @@ async def updates(update: Update ):
 
         bot_words = ['جانم','دوباره تویی که','بگو کار دارم','هاااا','بگو قشنگم','جووون']
         if text in ["ping", "ربات", "پینگ"]:
-            from random import choice as ch
-            await update.reply(ch(bot_words))
-            # cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
-            # result = cursor.fetchone()
-            # if result:
-                # await update.reply(f"جوونم {result[0]}")
-            # else:
+            cursor.execute("SELECT title FROM titles WHERE user_guid = ? AND chat_guid = ?", (user_guid, chat_guid))
+            result = cursor.fetchone()
+            if result:
+                await update.reply(f"جوونم {result[0]}")
+            else:
+                from random import choice as ch
+                await update.reply(ch(bot_words))
+
         if text == "فال":
             # ۱. پیام انتظار
             wait_msg = await update.reply("⏳ دیوان حافظ رو باز کردم... الان می‌فرستم.")
@@ -2045,7 +2046,7 @@ async def updates(update: Update ):
                 await update.reply(f"🎉 آفرین! درست حدس زدی. عدد {number} بود!")
                 del active_games[chat_key]
         
-        if text == "پیش بینی":
+        if text == "چی میشه؟":
             predictions = [
                 "فردا روز خوبی برای تو خواهد بود",
                 "هفته آینده اتفاق خوشایندی برایت می‌افتد",
@@ -2054,6 +2055,7 @@ async def updates(update: Update ):
                 "در کارهایت موفق خواهی شد",
                 "مراقب فرصت‌های پیش رو باش"
             ]
+            from random import choice as ch
             await update.reply(f"🔮 پیش‌بینی:\n{ch(predictions)}")
         
         # بقیه پیام‌های ساده

@@ -1981,26 +1981,49 @@ async def updates(update: Update ):
                 # await update.reply(f"جوونم {result[0]}")
             # else:
         if text == "فال":
-                
-            processing_msg = await update.reply("⏳ در حال دریافت فال حافظ...")
+            # ۱. پیام انتظار
+            wait_msg = await update.reply("⏳ دیوان حافظ رو باز کردم... الان می‌فرستم.")
             
-            # اجرای در پس‌زمینه
-            import asyncio
-            async def send_fal_result():
+            url = "https://hafez-dxle.onrender.com/fal"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # تایم‌اوت ۶۰ ثانیه برای بیدار شدن سرور رندر + دور زدن خطای SSL
+                    async with session.get(url, timeout=60, ssl=False) as response:
+                        if response.status == 200:
+                            # غیرفعال کردن چک کردن هدر برای جلوگیری از خطای ContentTypeError
+                            data = await response.json(content_type=None)
+                            
+                            # دریافت اطلاعات
+                            title = data.get("title", "فال حافظ")
+                            interpreter = data.get("interpreter", "تعبیری یافت نشد.")
+                            poem = data.get("poem", data.get("text", ""))
+                            
+                            # ساختار متن
+                            result = f"✨ **{title}** ✨\n\n"
+                            if poem:
+                                result += f"📜 **غزل:**\n{poem}\n\n"
+                            result += f"👁‍🗨 **تعبیر:**\n{interpreter}"
+                            
+                            # ۲. پاک کردن پیام انتظار
+                            try:
+                                await bot.delete_messages(update.object_guid, [wait_msg.message_id])
+                            except:
+                                pass
+                                
+                            # ۳. ارسال مستقیم فال
+                            await update.reply(result)
+                        else:
+                            try:
+                                await bot.delete_messages(update.object_guid, [wait_msg.message_id])
+                            except: pass
+                            await update.reply("❌ سرور فال حافظ موقتاً پاسخگو نیست. لطفاً کمی بعد دوباره تلاش کنید.")
+            except Exception as e:
+                # این خط الان نوع ارور رو هم تو ترمینال چاپ می‌کنه تا دقیقاً بدونی مشکل از کجاست
+                print(f"Hafiz API Error Type: {type(e).__name__}, Msg: {str(e)}")
                 try:
-                    import requests
-
-                    url = "https://hafez-dxle.onrender.com/fal"
-                    response = await asyncio.to_thread(requests.get, url, timeout=10)
-                    data = response.json()
-                    result = f"📜 فال حافظ:\n\n{data['title']}\n\n{data['interpreter']}"
-                    await bot.edit_message(update.object_guid, processing_msg.message_id, result)
-                except Exception as e:
-                    error_msg = "❌ خطا در دریافت فال حافظ. لطفاً بعداً تلاش کنید." + str(e)
-                    await bot.edit_message(update.object_guid, processing_msg.message_id, error_msg)
-
-            # استفاده از ماژول asyncio که در بالای فایل import شده
-            asyncio.create_task(send_fal_result())
+                    await bot.delete_messages(update.object_guid, [wait_msg.message_id])
+                except: pass
+                await update.reply("❌ خطا در دریافت فال. لطفاً مجدداً تلاش کنید.")
         elif text == "حدس عدد":
                 
             chat_key = f"{chat_guid}_{user_guid}"

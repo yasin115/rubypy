@@ -123,7 +123,307 @@ CREATE TABLE IF NOT EXISTS force_subscribe (
 )
 """)
 conn.commit()
+#=======================================================================================
+cursor.execute("""
+        CREATE TABLE IF NOT EXISTS quiz_scores (
+            user_guid TEXT,
+            chat_guid TEXT,
+            score INTEGER DEFAULT 0,
+            PRIMARY KEY (user_guid, chat_guid)
+        )
+        """)
+conn.commit()
+active_quizzes = {}  # کلید: f"{user_guid}_{chat_guid}"  مقدار: {'current':0, 'score':0, 'total':len(quiz_questions), 'asked':[]}
+        # --- سوالات کوییز (بیش از 150 سوال) ---
 
+quiz_questions = [
+    {"question": "کدام یک از موارد زیر یک عدد اول است؟", "options": ["4", "6", "7", "9"], "answer": 2},
+    {"question": "پایتخت ایران کجاست؟", "options": ["اصفهان", "شیراز", "تهران", "مشهد"], "answer": 2},
+    {"question": "بزرگترین اقیانوس جهان کدام است؟", "options": ["آرام", "اطلس", "هند", "منجمد شمالی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک مرورگر اینترنت نیست؟", "options": ["Chrome", "Firefox", "Windows", "Safari"], "answer": 2},
+    {"question": "کدام کشور برنده جام جهانی 2018 شد؟", "options": ["آلمان", "برزیل", "فرانسه", "اسپانیا"], "answer": 2},
+    {"question": "کوچکترین کشور جهان کدام است؟", "options": ["موناکو", "واتیکان", "سن مارینو", "مالت"], "answer": 1},
+    {"question": "نویسنده کتاب 'صد سال تنهایی' کیست؟", "options": ["گابریل گارسیا مارکز", "ارنست همینگوی", "فرانتس کافکا", "جرج اورول"], "answer": 0},
+    {"question": "کدام سیاره به 'سیاره سرخ' معروف است؟", "options": ["زهره", "مریخ", "مشتری", "زحل"], "answer": 1},
+    {"question": "سریعترین حیوان خشکی کدام است؟", "options": ["شیر", "یوزپلنگ", "پلنگ", "اسب"], "answer": 1},
+    {"question": "کدام یک از موارد زیر یک سیستم عامل نیست؟", "options": ["Windows", "Linux", "Excel", "macOS"], "answer": 2},
+    {"question": "ارتفاع قله اورست چند متر است؟", "options": ["8488", "8848", "8288", "8888"], "answer": 1},
+    {"question": "مخترع لامپ برق کیست؟", "options": ["نیوتن", "ادیسون", "انیشتین", "تسلا"], "answer": 1},
+    {"question": "کدام سوره در قرآن با 'بسم الله الرحمن الرحیم' شروع نمی‌شود؟", "options": ["فاتحه", "توحید", "توبه", "حمد"], "answer": 2},
+    {"question": "کدام یک از موارد زیر یک زبان برنامه‌نویسی وب است؟", "options": ["HTML", "CSS", "JavaScript", "همه موارد"], "answer": 3},
+    {"question": "بزرگترین کشور جهان از نظر مساحت کدام است؟", "options": ["کانادا", "چین", "روسیه", "آمریکا"], "answer": 2},
+    {"question": "نقاشی 'مونالیزا' اثر کیست؟", "options": ["ون گوگ", "داوینچی", "پیکاسو", "مونه"], "answer": 1},
+    {"question": "پدر علم رایانه کیست؟", "options": ["تورینگ", "نیومن", "برنرزلی", "گیتس"], "answer": 0},
+    {"question": "بلندترین رود جهان کدام است؟", "options": ["نیل", "آمازون", "یانگ تسه", "می سی سی پی"], "answer": 0},
+    {"question": "کدام حیوان می تواند تا یک ماه بدون آب زنده بماند؟", "options": ["شتر", "فیل", "زرافه", "اسب آبی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک نرم‌افزار پایگاه داده است؟", "options": ["MySQL", "Word", "Excel", "PowerPoint"], "answer": 0},
+    {"question": "معروفترین اثر بتهوون چیست؟", "options": ["سمفونی شماره 5", "سمفونی شماره 9", "فور الیزه", "سمفونی شماره 40"], "answer": 1},
+    {"question": "کدام فیلم برنده اسکار 2023 بهترین فیلم شد؟", "options": ["Everything Everywhere All at Once", "Top Gun", "Avatar", "Elvis"], "answer": 0},
+    {"question": "اولین انسان در فضا چه کسی بود؟", "options": ["یوری گاگارین", "نیل آرمسترانگ", "باز آلدرین", "آلن شپرد"], "answer": 0},
+    {"question": "کدام ماده به عنوان 'طلای سفید' شناخته می‌شود؟", "options": ["نقره", "پلاتین", "نفت", "نمک"], "answer": 2},
+    {"question": "کدام شهر به شهر بادها معروف است؟", "options": ["یزد", "اصفهان", "شیراز", "تهران"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک برند خودروسازی آمریکایی نیست؟", "options": ["Toyota", "Ford", "Chevrolet", "Tesla"], "answer": 0},
+    {"question": "کدام گربه بزرگ قادر به غرش نیست؟", "options": ["شیر", "ببر", "چیتا", "پلنگ"], "answer": 2},
+    {"question": "اولین بازی ویدیویی که توسط نینتندو ساخته شد چه نام داشت؟", "options": ["Super Mario", "Donkey Kong", "Zelda", "Pokemon"], "answer": 1},
+    {"question": "کدام فیلم ساخته کریستوفر نولان نیست؟", "options": ["Inception", "Interstellar", "Dunkirk", "Fight Club"], "answer": 3},
+    {"question": "کدام عنصر شیمیایی با نماد 'Fe' نشان داده می‌شود؟", "options": ["طلا", "نقره", "آهن", "مس"], "answer": 2},
+    {"question": "کدام ورزش در بازی‌های المپیک 2020 اضافه شد؟", "options": ["اسکیت بورد", "کرلینگ", "اسکی", "بیلیارد"], "answer": 0},
+    {"question": "بزرگترین بیابان گرم جهان کدام است؟", "options": ["گوبی", "صحرای آفریقا", "ربع خالی", "آتاکاما"], "answer": 1},
+    {"question": "کدام دانشمند نظریه نسبیت را ارائه داد؟", "options": ["نیوتن", "گالیله", "انیشتین", "بور"], "answer": 2},
+    {"question": "کدام کشور بیشترین جمعیت مسلمان را دارد؟", "options": ["اندونزی", "پاکستان", "هند", "بنگلادش"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک کتاب از سهراب سپهری است؟", "options": ["کلیدر", "هشت کتاب", "چشم‌هایش", "بوف کور"], "answer": 1},
+    {"question": "کدام بازیگر نقش 'جک داوسون' را در تایتانیک بازی کرد؟", "options": ["لئوناردو دیکاپریو", "برد پیت", "مات دیمون", "تام کروز"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک شرکت هواپیمایی ایرانی است؟", "options": ["ایران ایر", "ترکیش ایرلاینز", "امارات", "قطر ایرویز"], "answer": 0},
+    {"question": "کدام میوه بیشترین ویتامین C را دارد؟", "options": ["پرتقال", "کیوی", "انبه", "گوآوا"], "answer": 3},
+    {"question": "کدام کشور به کشور خورشید طلوع معروف است؟", "options": ["چین", "کره", "ژاپن", "ویتنام"], "answer": 2},
+    {"question": "کدام حیوان می تواند چشم خود را مستقل از دیگری حرکت دهد؟", "options": ["آفتاب پرست", "مارمولک", "کروکودیل", "قورباغه"], "answer": 0},
+    {"question": "کدام آهنگساز آلمانی معروف به 'والس پادشاه' بود؟", "options": ["بتهوون", "موتسارت", "شتراوس", "باخ"], "answer": 2},
+    {"question": "اولین کشور در فناوری 5G کدام بود؟", "options": ["چین", "آمریکا", "کره جنوبی", "ژاپن"], "answer": 2},
+    {"question": "کدام یک از موارد زیر یک اصطلاح در برنامه‌نویسی شیءگرا است؟", "options": ["Inheritance", "Loop", "Array", "String"], "answer": 0},
+    {"question": "بزرگترین جزیره جهان کدام است؟", "options": ["گرینلند", "ماداگاسکار", "بورنئو", "سوماترا"], "answer": 0},
+    {"question": "کدام فیلم ساخته استنلی کوبریک نیست؟", "options": ["The Shining", "2001: A Space Odyssey", "Pulp Fiction", "A Clockwork Orange"], "answer": 2},
+    {"question": "کدام کشور دارای بیشترین تعداد زبان‌های زنده است؟", "options": ["هند", "اندونزی", "پاپوآ گینه نو", "نیجریه"], "answer": 2},
+    {"question": "کدام گیاه به عنوان گیاه گوشتخوار شناخته می‌شود؟", "options": ["ونوس فلای تپ", "بنفشه", "گل سرخ", "لاله"], "answer": 0},
+    {"question": "کدام آهنگ از مایکل جکسون بیشترین فروش را دارد؟", "options": ["Thriller", "Billie Jean", "Beat It", "Bad"], "answer": 0},
+    {"question": "طولانی ترین دیوار جهان کدام است؟", "options": ["دیوار چین", "دیوار هادریان", "دیوار برلین", "دیوار مراکش"], "answer": 0},
+    {"question": "کدام سیاره به دلیل حلقه‌هایش معروف است؟", "options": ["مشتری", "زحل", "اورانوس", "نپتون"], "answer": 1},
+    {"question": "کدام کشور در جام جهانی 2022 قهرمان شد؟", "options": ["فرانسه", "آرژانتین", "کرواسی", "مراکش"], "answer": 1},
+    {"question": "کدام دانشمند قانون گرانش را کشف کرد؟", "options": ["انیشتین", "نیوتن", "گالیله", "کپلر"], "answer": 1},
+    {"question": "بزرگترین گربه جهان کدام است؟", "options": ["شیر", "ببر سیبری", "پلنگ", "یوزپلنگ"], "answer": 1},
+    {"question": "کدام شهر به عنوان 'پایتخت خاورمیانه' شناخته می‌شود؟", "options": ["دبی", "تهران", "استانبول", "ریاض"], "answer": 0},
+    {"question": "کدام فیلم انیمیشن برنده اسکار 2022 شد؟", "options": ["Encanto", "Luca", "Flee", "The Mitchells vs. the Machines"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک گاز نجیب است؟", "options": ["اکسیژن", "نیتروژن", "هلیوم", "کلر"], "answer": 2},
+    {"question": "کدام کشور بیشترین خط آهن را دارد؟", "options": ["چین", "آمریکا", "روسیه", "هند"], "answer": 1},
+    {"question": "پدر علم پزشکی مدرن کیست؟", "options": ["بقراط", "ابن سینا", "جالینوس", "رازی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک شهر باستانی ایران است؟", "options": ["پاسارگاد", "دبی", "استانبول", "ریاض"], "answer": 0},
+    {"question": "کدام هنرمند نقاشی 'شب پرستاره' را کشید؟", "options": ["ون گوگ", "داوینچی", "پیکاسو", "رامبراند"], "answer": 0},
+    {"question": "عمیق ترین نقطه اقیانوس ها کدام است؟", "options": ["ماریانا", "تونگا", "فیلیپین", "کرمادک"], "answer": 0},
+    {"question": "کدام کشور به 'سرزمین اژدها' معروف است؟", "options": ["چین", "بوتان", "ولز", "ژاپن"], "answer": 1},
+    {"question": "کدام یک از موارد زیر یک شرکت فناوری آمریکایی است؟", "options": ["Samsung", "Huawei", "Apple", "Nokia"], "answer": 2},
+    {"question": "کدام فیلم اولین فیلم لایو اکشن دیزنی بود؟", "options": ["Pirates of the Caribbean", "The Jungle Book", "Alice in Wonderland", "Cinderella"], "answer": 1},
+    {"question": "بزرگترین استخر المپیک چند متر است؟", "options": ["50", "100", "25", "200"], "answer": 0},
+    {"question": "کدام میوه به عنوان 'سیب طلایی' شناخته می‌شود؟", "options": ["سیب", "گوجه فرنگی", "هلو", "زردآلو"], "answer": 1},
+    {"question": "کدام شخصیت کارتونی رقیب تام است؟", "options": ["جری", "اسپایک", "بوتچ", "تیفی"], "answer": 0},
+    {"question": "کدام کشور بیشترین ساعات روز را در تابستان دارد؟", "options": ["نروژ", "کانادا", "روسیه", "آلاسکا"], "answer": 0},
+    {"question": "کدام فیلم بر پایه کتاب 'کشتن مرغ مقلد' ساخته شد؟", "options": ["To Kill a Mockingbird", "Mockingjay", "The Hunger Games", "Catch-22"], "answer": 0},
+    {"question": "بزرگترین بندر جهان کدام است؟", "options": ["شانگهای", "سنگاپور", "روتردام", "هنگ کنگ"], "answer": 0},
+    {"question": "کدام حیوان می تواند بیش از 100 سال زندگی کند؟", "options": ["لاک پشت گالاپاگوس", "فیل", "نهنگ آبی", "کوسه گرینلند"], "answer": 3},
+    {"question": "کدام فیلم از رمان 'شرلوک هولمز' ساخته نشده است؟", "options": ["Sherlock Holmes", "The Hound of the Baskervilles", "The Lost World", "A Study in Pink"], "answer": 2},
+    {"question": "کدام شهر به عنوان 'پایتخت مد جهان' شناخته می‌شود؟", "options": ["پاریس", "میلان", "لندن", "نیویورک"], "answer": 0},
+    {"question": "کدام نوشیدنی از تخمیر انگور به دست می‌آید؟", "options": ["شراب", "آبجو", "ویسکی", "ودکا"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک برند لوازم خانگی است؟", "options": ["Bosch", "Mercedes", "BMW", "Audi"], "answer": 0},
+    {"question": "کدام فیلم از کتاب 'بازی های گرسنگی' ساخته شده است؟", "options": ["The Hunger Games", "Divergent", "Maze Runner", "Twilight"], "answer": 0},
+    {"question": "بزرگترین شبه جزیره جهان کدام است؟", "options": ["عربستان", "هندوستان", "آلاسکا", "اسکاندیناوی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک سیستم مدیریت پایگاه داده رابطه‌ای است؟", "options": ["Oracle", "MongoDB", "Cassandra", "Redis"], "answer": 0},
+    {"question": "کدام شهر به 'شهر عشق' معروف است؟", "options": ["پاریس", "ونیز", "رم", "بارسلونا"], "answer": 0},
+    {"question": "کدام فیلم اولین فیلم پویانمایی کامل دیزنی بود؟", "options": ["سفید برفی", "سیندرلا", "خواب زیبا", "پینوکیو"], "answer": 0},
+    {"question": "بزرگترین رودخانه اروپا کدام است؟", "options": ["ولگا", "دانوب", "راین", "سن"], "answer": 0},
+    {"question": "کدام ماده برای تولید شیشه استفاده می‌شود؟", "options": ["سیلیس", "کربن", "اکسیژن", "هیدروژن"], "answer": 0},
+    {"question": "کدام فیلم برنده جایزه اسکار بهترین فیلم 2020 شد؟", "options": ["Parasite", "1917", "Joker", "Once Upon a Time in Hollywood"], "answer": 0},
+    {"question": "بزرگترین تالاب ایران کدام است؟", "options": ["انزلی", "هورالعظیم", "میانکاله", "شادگان"], "answer": 1},
+    {"question": "کدام یک از موارد زیر یک زبان برنامه‌نویسی تابعی است؟", "options": ["Haskell", "Java", "C", "Python"], "answer": 0},
+    {"question": "کدام کشور دارای بیشترین تعداد آتشفشان فعال است؟", "options": ["اندونزی", "ژاپن", "ایسلند", "ایتالیا"], "answer": 0},
+    {"question": "کدام فیلم از بازیگر 'ال پاچینو' ساخته نشده است؟", "options": ["The Godfather", "Scarface", "Goodfellas", "Heat"], "answer": 2},
+    {"question": "کدام یک از موارد زیر یک تکنولوژی واقعیت مجازی است؟", "options": ["VR", "AR", "MR", "همه موارد"], "answer": 3},
+    {"question": "بزرگترین استخر نفتی جهان کدام است؟", "options": ["غوار", "بورگان", "سفانیه", "روماشکینو"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک برند گوشی موبایل است؟", "options": ["Xiaomi", "Sony", "Panasonic", "LG"], "answer": 0},
+    {"question": "کدام فیلم محصول استودیو جیبلی است؟", "options": ["Spirited Away", "Frozen", "Toy Story", "Shrek"], "answer": 0},
+    {"question": "بلندترین کوه آفریقا کدام است؟", "options": ["کیلیمانجارو", "کنیا", "روونزوری", "اطلس"], "answer": 0},
+    {"question": "کدام شخصیت تاریخی مخترع چاپ بود؟", "options": ["گوتنبرگ", "لئوناردو", "نیوتن", "گالیله"], "answer": 0},
+    {"question": "بزرگترین هتل جهان کدام است؟", "options": ["First World Hotel", "MGM Grand", "Venetian", "Marriott"], "answer": 0},
+    {"question": "کدام حیوان سریع ترین سرعت در آب را دارد؟", "options": ["ماهی بادبان", "دلفین", "کوسه سفید", "نهنگ قاتل"], "answer": 0},
+    {"question": "کدام فیلم ساخته کوئنتین تارانتینو نیست؟", "options": ["Pulp Fiction", "Kill Bill", "Django Unchained", "The Matrix"], "answer": 3},
+    {"question": "بزرگترین کتابخانه جهان کدام است؟", "options": ["کتابخانه کنگره", "کتابخانه بریتانیا", "کتابخانه چین", "کتابخانه روسیه"], "answer": 0},
+    {"question": "کدام کشور قطب الماس جهان است؟", "options": ["بوتسوانا", "روسیه", "کانادا", "استرالیا"], "answer": 0},
+    {"question": "کدام فیلم انیمیشن ساخته شده توسط استودیو پیکسار نیست؟", "options": ["Cars", "Up", "Shrek", "Finding Nemo"], "answer": 2},
+    {"question": "طولانی ترین رودخانه ایران کدام است؟", "options": ["کارون", "اروندرود", "سفیدرود", "زاينده‌رود"], "answer": 0},
+    {"question": "بلندترین قله ایران کدام است؟", "options": ["دماوند", "علم‌کوه", "سبلان", "تفتان"], "answer": 0},
+    {"question": "کدام استان ایران دارای بیشترین تنوع قومی است؟", "options": ["تهران", "اصفهان", "خراسان رضوی", "آذربایجان شرقی"], "answer": 2},
+    {"question": "کدام یک از موارد زیر از آثار ثبت‌شده ایران در یونسکو نیست؟", "options": ["تخت جمشید", "میدان نقش جهان", "باغ ارم", "برج میلاد"], "answer": 3},
+    {"question": "کدام شاعر ایرانی 'مخزن الاسرار' را سروده است؟", "options": ["سنایی", "عطار", "نظامی", "خاقانی"], "answer": 2},
+    {"question": "کدام فیلم ساخته اصغر فرهادی برنده اسکار شد؟", "options": ["جدایی نادر از سیمین", "فروشنده", "درباره الی", "گذشته"], "answer": 0},
+    {"question": "کدام خوراکی ایرانی در سال ۲۰۱۷ به عنوان میراث ناملموس یونسکو ثبت شد؟", "options": ["کباب", "ته چین", "نان لواش", "زعفران"], "answer": 2},
+    {"question": "پدر شعر نو فارسی کیست؟", "options": ["نیما یوشیج", "اخوان ثالث", "شاملو", "فروغ فرخزاد"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر گنبدهای فیروزه‌ای' معروف است؟", "options": ["اصفهان", "شیراز", "یزد", "مشهد"], "answer": 0},
+    {"question": "کدام بازیگر ایرانی برنده جایزه بهترین بازیگر زن از جشنواره کن شد؟", "options": ["هدیه تهرانی", "لیلا حاتمی", "ترانه علیدوستی", "پانته‌آ بهرام"], "answer": 2},
+    {"question": "کدام ورزشکار ایرانی مدال طلای المپیک را در وزنه‌برداری کسب کرد؟", "options": ["حسین توکلی", "بهداد سلیمی", "سجاد انوشیروانی", "کوروش باقری"], "answer": 1},
+    {"question": "کدام آهنگساز ایرانی 'سمفونی تهران' را ساخت؟", "options": ["همایون خرم", "فریدون شهبازیان", "لوریس چکناواریان", "محمد سریر"], "answer": 2},
+    {"question": "کدام یک از موارد زیر از جاذبه‌های طبیعی ایران است؟", "options": ["کوه دماوند", "تخت جمشید", "میدان نقش جهان", "ارگ بم"], "answer": 0},
+    {"question": "کدام نوع خط در ایران باستان استفاده می‌شد؟", "options": ["خط میخی", "خط پهلوی", "خط سغدی", "خط اوستایی"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'بوی جوی مولیان' را سروده است؟", "options": ["رودکی", "فردوسی", "منوچهری", "عنصری"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر زیرزمینی' معروف است؟", "options": ["نوش آباد", "میبد", "نائین", "اردستان"], "answer": 0},
+    {"question": "کدام هنر سنتی ایران در سال ۲۰۲۱ در یونسکو ثبت شد؟", "options": ["میناکاری", "قالی‌بافی", "چوگان بازی", "نقاشی قهوه‌خانه‌ای"], "answer": 2},
+    {"question": "کدام خواننده ایرانی 'مرا ببوس' را خوانده است؟", "options": ["محمد اصفهانی", "علیرضا قربانی", "همایون شجریان", "سالار عقیلی"], "answer": 1},
+    {"question": "کدام استان ایران بیشترین تولید زعفران را دارد؟", "options": ["خراسان رضوی", "خراسان جنوبی", "فارس", "یزد"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک غذای محلی مازندران است؟", "options": ["نازخاتون", "قرمه سبزی", "آش دوغ", "کله جوش"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'پنج گنج' را سروده است؟", "options": ["نظامی گنجوی", "خواجوی کرمانی", "جامی", "کمال الدین اسماعیل"], "answer": 0},
+    {"question": "کدام سد ایرانی بلندترین سد خاکی جهان است؟", "options": ["سد کرج", "سد شهید عباسپور", "سد بختیاری", "سد کارون ۳"], "answer": 2},
+    {"question": "کدام فیلم ایرانی برنده خرس طلای برلین شد؟", "options": ["درباره الی", "جدایی نادر از سیمین", "فروشنده", "کلوزآپ"], "answer": 1},
+    {"question": "کدام یک از موارد زیر از صنایع دستی اصفهان است؟", "options": ["میناکاری", "خاتم‌کاری", "قلمزنی", "همه موارد"], "answer": 3},
+    {"question": "کدام وزیر ایرانی 'امیرکبیر' بود؟", "options": ["ناصرالدین شاه", "محمدشاه", "فتحعلی شاه", "رضاشاه"], "answer": 0},
+    {"question": "کدام ورزش سنتی ایرانی در یونسکو ثبت شد؟", "options": ["کشتی پهلوانی", "زو‌رخانه", "چوگان", "تیراندازی"], "answer": 1},
+    {"question": "کدام استان ایران بیشترین جمعیت را دارد؟", "options": ["تهران", "خراسان رضوی", "اصفهان", "فارس"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'هفت خوان رستم' را سروده است؟", "options": ["فردوسی", "اسدی طوسی", "نظامی", "عطار"], "answer": 0},
+    {"question": "کدام بنای تاریخی ایران آرامگاه حافظ است؟", "options": ["حافظیه", "سعدیه", "تخت فولاد", "مسجد نصیرالملک"], "answer": 0},
+    {"question": "کدام نوع قالی ایرانی معروف ترین است؟", "options": ["قالی تبریز", "قالی اصفهان", "قالی کاشان", "قالی کرمان"], "answer": 1},
+    {"question": "کدام جشن باستانی ایرانی در فصل بهار برگزار می‌شود؟", "options": ["نوروز", "مهرگان", "شب یلدا", "سده"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک آهنگساز معاصر ایرانی است؟", "options": ["پرویز مشکاتیان", "محمدرضا شجریان", "شهرام ناظری", "حسین علیزاده"], "answer": 3},
+    {"question": "کدام استان ایران بیشترین جاذبه گردشگری را دارد؟", "options": ["فارس", "اصفهان", "خراسان رضوی", "مازندران"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'گلستان' را نوشت؟", "options": ["سعدی", "حافظ", "فردوسی", "خیام"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک آداب و رسوم شب یلدا است؟", "options": ["خوردن هندوانه", "چهارشنبه سوری", "سیزده بدر", "نوروزخوانی"], "answer": 0},
+    {"question": "کدام ورزشکار ایرانی اولین مدال طلای المپیک را کسب کرد؟", "options": ["ناصر چشم‌آذر", "علی میرزایی", "حسین توکلی", "بهداد سلیمی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک خوراکی خیابانی محبوب در تهران است؟", "options": ["ساندویچ کالباس", "آش رشته", "دلمه", "فالوده"], "answer": 0},
+    {"question": "کدام نوع خط در ایران بعد از اسلام رواج یافت؟", "options": ["خط نسخ", "خط تعلیق", "خط نستعلیق", "خط شکسته"], "answer": 2},
+    {"question": "کدام شاعر ایرانی 'رباعیات' معروف دارد؟", "options": ["خیام", "مولوی", "حافظ", "سعدی"], "answer": 0},
+    {"question": "کدام فیلم ایرانی برنده جایزه بهترین فیلم از فجر شد؟", "options": ["موقعیت مهدی", "شنای پروانه", "مغزهای کوچک زنگ زده", "یدو"], "answer": 1},
+    {"question": "کدام شهر ایران به 'شهر کارخانه‌ها' معروف بود؟", "options": ["اراک", "تبریز", "اهواز", "قم"], "answer": 0},
+    {"question": "کدام نوع پارچه سنتی ایران در یزد بافته می‌شود؟", "options": ["ترمه", "اطلس", "شال", "حریر"], "answer": 0},
+    {"question": "کدام بازیگر ایرانی برنده جایزه بهترین بازیگر مرد از جشنواره کن شد؟", "options": ["اصغر فرهادی", "پیمان معادی", "بهرام بیضایی", "عباس کیارستمی"], "answer": 1},
+    {"question": "کدام استان ایران به 'بهشت گردشگران' معروف است؟", "options": ["مازندران", "گیلان", "اردبیل", "گلستان"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک نماد ملی ایران است؟", "options": ["شیر و خورشید", "درخت سرو", "سیمرغ", "لوتوس"], "answer": 2},
+    {"question": "کدام شاعر ایرانی 'دوبیتی‌های' معروف دارد؟", "options": ["بابا طاهر", "فخرالدین عراقی", "اوحدی مراغه‌ای", "سیف فرغانی"], "answer": 0},
+    {"question": "کدام ورزش سنتی ایرانی سوارکاری است؟", "options": ["چوگان", "کشتی", "تیراندازی", "شنا"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر نارنج و ترنج' معروف است؟", "options": ["گرگان", "ساری", "رشت", "قائم‌شهر"], "answer": 1},
+    {"question": "کدام یک از موارد زیر یک غذای شمال ایران است؟", "options": ["باقالی قاتق", "کباب کوبیده", "زرشک پلو", "آش جو"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'مثنوی معنوی' را سروده است؟", "options": ["مولوی", "عطار", "سنایی", "نظامی"], "answer": 0},
+    {"question": "کدام بنای تاریخی ایران در شوش است؟", "options": ["زیگورات چغازنبیل", "کاخ داریوش", "تخت جمشید", "پاسارگاد"], "answer": 0},
+    {"question": "کدام نوع ساز سنتی ایرانی است؟", "options": ["تار", "ویولن", "پیانو", "ساکسیفون"], "answer": 0},
+    {"question": "کدام استان ایران بیشترین تولید پسته را دارد؟", "options": ["کرمان", "یزد", "سمنان", "خراسان جنوبی"], "answer": 0},
+    {"question": "کدام فیلم ایرانی برنده شیر طلای ونیز شد؟", "options": ["دایره", "کلوزآپ", "طعم گیلاس", "زیر درختان زیتون"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک مراسم مذهبی در ایران است؟", "options": ["تعزیه", "شب یلدا", "نوروز", "مهرگان"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'خسرو و شیرین' را سروده است؟", "options": ["نظامی", "فردوسی", "جامی", "وحشی بافقی"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر بادگیرها' معروف است؟", "options": ["یزد", "کاشان", "نائین", "میبد"], "answer": 0},
+    {"question": "کدام ورزشکار ایرانی رکورددار پرش ارتفاع جهان است؟", "options": ["منصور معتمدی", "حسین کلانی", "رضا قاسمی", "محمد ارزنده"], "answer": 0},
+    {"question": "کدام نوع شیرینی ایرانی در قم تولید می‌شود؟", "options": ["سوهان", "باقلوا", "قطاب", "نوقا"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک بازی محلی ایرانی است؟", "options": ["الک دولک", "مونوپولی", "شطرنج", "دومینو"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'بهار دلکش' را سروده است؟", "options": ["ملک الشعرای بهار", "عارف قزوینی", "ایرج میرزا", "فرخی یزدی"], "answer": 0},
+    {"question": "کدام غار معروف در لرستان قرار دارد؟", "options": ["غار مخمل‌کوه", "غار علی صدر", "غار رودافشان", "غار قوری قلعه"], "answer": 0},
+    {"question": "کدام نوع سنگ قیمتی در ایران استخراج می‌شود؟", "options": ["فیروزه", "یاقوت", "الماس", "زبرجد"], "answer": 0},
+    {"question": "کدام استان ایران به 'استان آب‌های گرم' معروف است؟", "options": ["اردبیل", "مازندران", "گیلان", "آذربایجان شرقی"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک داستان کهن ایرانی است؟", "options": ["رستم و سهراب", "شاهنامه", "بوستان", "گلستان"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'ویژگی‌های' شعر نو را بنیان گذاشت؟", "options": ["نیما یوشیج", "اخوان ثالث", "شاملو", "هوشنگ ابتهاج"], "answer": 0},
+    {"question": "کدام فیلم ایرانی برنده خرس نقرهای برلین شد؟", "options": ["نفس", "به وقت شام", "مغزهای کوچک زنگ زده", "قهرمان"], "answer": 3},
+    {"question": "کدام صنعت دستی ایران در تبریز معروف است؟", "options": ["فرش", "مسگری", "سفالگری", "منبت کاری"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک آیین سنتی عروسی در ایران است؟", "options": ["حنا بندان", "شیرینی خوری", "قنوت", "عقدکنان"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'قصه‌های مجید' را سروده است؟", "options": ["هوشنگ مرادی کرمانی", "احمد شاملو", "محمود دولت‌آبادی", "صادق چوبک"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر پنجره‌های مشبک' معروف است؟", "options": ["کاشان", "یزد", "اصفهان", "شیراز"], "answer": 0},
+    {"question": "کدام ورزشکار ایرانی مدال نقره المپیک را در تکواندو کسب کرد؟", "options": ["کیمیا علیزاده", "مهدی خدابخشی", "سعید معروف", "بهداد سلیمی"], "answer": 0},
+    {"question": "کدام نوع نان سنتی ایران در مناطق عشایری پخته می‌شود؟", "options": ["لواش", "بربری", "تافتون", "سنگک"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک جشن باستانی زرتشتیان است؟", "options": ["سده", "نوروز", "مهرگان", "تیرگان"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'آرش کمانگیر' را سروده است؟", "options": ["سیاوش کسرایی", "مهدی اخوان ثالث", "فریدون مشیری", "نادر نادرپور"], "answer": 0},
+    {"question": "کدام غار در همدان قرار دارد؟", "options": ["علی صدر", "رودافشان", "مخمل کوه", "قوری قلعه"], "answer": 0},
+    {"question": "کدام نوع صنعت دستی ایران در زنجان معروف است؟", "options": ["چاقوسازی", "مسگری", "خاتم‌کاری", "میناکاری"], "answer": 0},
+    {"question": "کدام استان ایران بیشترین تولید عسل را دارد؟", "options": ["آذربایجان شرقی", "اردبیل", "مازندران", "کرمانشاه"], "answer": 0},
+    {"question": "کدام فیلم ایرانی برنده نخل طلای کن شد؟", "options": ["طعم گیلاس", "کلوزآپ", "زیر درختان زیتون", "بچه‌های آسمان"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک غذای جنوب ایران است؟", "options": ["مهیاوه", "آش دوغ", "کله جوش", "نازخاتون"], "answer": 0},
+    {"question": "کدام شاعر ایرانی 'سلام بر ابراهیم' را سروده است؟", "options": ["قیصر امین‌پور", "محمدرضا شفیعی کدکنی", "سلمان هراتی", "محمود درویش"], "answer": 0},
+    {"question": "کدام شهر ایران به 'شهر پل‌های تاریخی' معروف است؟", "options": ["شوشتر", "دزفول", "اهواز", "آبادان"], "answer": 0},
+    {"question": "کدام ورزشکار ایرانی مدال طلای جهان را در کشتی آزاد کسب کرد؟", "options": ["رضا یزدانی", "حسن یزدانی", "غلامرضا تختی", "ابراهیم جوادی"], "answer": 1},
+    {"question": "کدام نوع آجیل ایرانی در شب یلدا مصرف می‌شود؟", "options": ["تخمه", "بادام", "پسته", "گردو"], "answer": 0},
+    {"question": "کدام یک از موارد زیر یک افسانه ایرانی است؟", "options": ["زال و سیمرغ", "رستم و اشکبوس", "سهراب و گردآفرید", "همه موارد"], "answer": 3},
+    {"question": "کدام شاعر ایرانی 'در کوچه باغ نیشابور' را سروده است؟", "options": ["محمدرضا شفیعی کدکنی", "فروغ فرخزاد", "سهراب سپهری", "اخوان ثالث"], "answer": 0},
+    {"question": "کدام غار در کرمانشاه قرار دارد؟", "options": ["غار قوری قلعه", "غار علی صدر", "غار رودافشان", "غار مخمل کوه"], "answer": 0},
+    {"question": "کدام نوع صنعت دستی ایران در کرمان معروف است؟", "options": ["قالی بافی", "پته دوزی", "سفالگری", "قلمزنی"], "answer": 1},
+    {"question": "کدام استان ایران بیشترین تولید خرما را دارد؟", "options": ["کرمان", "هرمزگان", "بوشهر", "خوزستان"], "answer": 1},
+    {"question": "کدام فیلم ایرانی برنده جایزه بهترین فیلم از جشنواره فجر شد؟", "options": ["ماجرای نیمروز", "بدون تاریخ بدون امضا", "خوب بد جلف ۲", "متری شیش و نیم"], "answer": 3},
+    {"question": "کدام یک از موارد زیر یک نوشیدنی سنتی ایرانی است؟", "options": ["دوغ", "عرق", "شربت", "همه موارد"], "answer": 3}
+]
+
+
+async def start_quiz(user_guid, chat_guid, update):
+    key = f"{user_guid}_{chat_guid}"
+    if key in active_quizzes:
+        await update.reply("❗ شما در حال حاضر یک کوییز فعال دارید. ابتدا آن را تمام کنید.")
+        return
+    # انتخاب 10 سوال تصادفی از بین کل سوالات (بدون تکرار)
+    import random
+    selected = random.sample(quiz_questions, min(10, len(quiz_questions)))
+    active_quizzes[key] = {
+        'questions': selected,
+        'current': 0,
+        'score': 0,
+        'total': len(selected)
+    }
+    q = active_quizzes[key]['questions'][0]
+    options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(q['options'])])
+    await update.reply(
+        f"🎯 کوییز آغاز شد!\n\n"
+        f"سوال ۱ از {len(selected)}:\n"
+        f"{q['question']}\n\n"
+        f"{options_text}\n\n"
+        f"پاسخ خود را با 'پاسخ 1' یا 'پاسخ 2' و ... ارسال کنید."
+    )
+
+async def process_answer(user_guid, chat_guid, update, answer_number):
+    key = f"{user_guid}_{chat_guid}"
+    if key not in active_quizzes:
+        await update.reply("❗ شما کوییز فعالی ندارید. برای شروع 'کوییز' را ارسال کنید.")
+        return
+    quiz = active_quizzes[key]
+    current_q = quiz['current']
+    if current_q >= quiz['total']:
+        # کوییز تمام شده
+        await update.reply("❗ کوییز شما به پایان رسیده است. برای شروع جدید 'کوییز' بزنید.")
+        del active_quizzes[key]
+        return
+    question = quiz['questions'][current_q]
+    correct_index = question['answer']
+    if answer_number - 1 == correct_index:
+        quiz['score'] += 1
+        await update.reply("✅ پاسخ صحیح! +1 امتیاز")
+    else:
+        correct_option = question['options'][correct_index]
+        await update.reply(f"❌ پاسخ نادرست. پاسخ صحیح: {correct_option}")
+    quiz['current'] += 1
+    if quiz['current'] >= quiz['total']:
+        # پایان کوییز
+        total_score = quiz['score']
+        total_q = quiz['total']
+        # ذخیره امتیاز در دیتابیس
+        cursor.execute("INSERT OR REPLACE INTO quiz_scores (user_guid, chat_guid, score) VALUES (?, ?, COALESCE((SELECT score FROM quiz_scores WHERE user_guid=? AND chat_guid=?), 0) + ?)",
+                       (user_guid, chat_guid, user_guid, chat_guid, total_score))
+        conn.commit()
+        await update.reply(
+            f"🏁 کوییز به پایان رسید!\n"
+            f"امتیاز شما: {total_score} از {total_q}\n"
+            f"برای شروع مجدد 'کوییز' را ارسال کنید."
+        )
+        del active_quizzes[key]
+    else:
+        next_q = quiz['questions'][quiz['current']]
+        options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(next_q['options'])])
+        await update.reply(
+            f"سوال {quiz['current']+1} از {quiz['total']}:\n"
+            f"{next_q['question']}\n\n"
+            f"{options_text}"
+        )
+
+async def show_quiz_score(user_guid, chat_guid, update):
+    cursor.execute("SELECT score FROM quiz_scores WHERE user_guid=? AND chat_guid=?", (user_guid, chat_guid))
+    row = cursor.fetchone()
+    score = row[0] if row else 0
+    await update.reply(f"📊 امتیاز کل شما در کوییز: {score}")
+
+async def show_quiz_leaderboard(chat_guid, update):
+    cursor.execute("SELECT user_guid, score FROM quiz_scores WHERE chat_guid=? ORDER BY score DESC LIMIT 10", (chat_guid,))
+    rows = cursor.fetchall()
+    if not rows:
+        await update.reply("ℹ️ هنوز هیچ امتیازی برای این گروه ثبت نشده است.")
+        return
+    message = "🏆 جدول برترین‌های کوییز:\n\n"
+    for i, (user_guid, score) in enumerate(rows, 1):
+        try:
+            user_info = await bot.get_user_info(user_guid=user_guid)
+            name = user_info.user.first_name or "کاربر"
+            username = user_info.user.username
+            if username:
+                name = f"@{username}"
+        except:
+            name = "کاربر"
+        message += f"{i}. {name} — {score} امتیاز\n"
+    await update.reply(message)
+
+#=======================================================================================
 async def can_mute_user(muter_guid, target_guid, chat_guid):
     """بررسی آیا کاربر می‌تواند کاربر دیگر را سکوت کند"""
     # کاربر ویژه اصلی می‌تواند به همه سکوت بدهد (حتی به ادمین‌ها)
@@ -145,7 +445,7 @@ async def is_group_owner(user_guid, chat_guid):
 async def is_bot_admin(user_guid):
     """بررسی آیا کاربر ادمین ربات است"""
     # کاربر ویژه اصلی همیشه ادمین است
-    if user_guid == "u0HXkpO07ea05449373fa9cfa8b81b65" or user_guid == 'u0IgIPh080a461a73151911c296cd707':
+    if user_guid == "u0Iphtw00ea7a97ad1dd76b7053d0faf" or user_guid == 'u0Gfirp0efb1e13736a9714fe315f443':
         return True
     # بررسی در دیتابیس
     cursor.execute("SELECT user_guid FROM bot_admins WHERE user_guid = ?", (user_guid,))
@@ -192,7 +492,7 @@ last_cleanup_time = time.time()
 async def is_special_admin(user_guid, chat_guid=None):
     """بررسی آیا کاربر ویژه اصلی یا مالک گروه است"""
     # کاربر ویژه اصلی
-    if user_guid == "u0IsWDl0c017999078ea2f8ba373cad5" or user_guid == "u0B6lVH09f6b34127e83265bc396e72a":
+    if user_guid == "u0IsWDl0c017999078ea2f8ba373cad5" or user_guid == "u0Gfirp0efb1e13736a9714fe315f443":
         return True
     
 
@@ -374,24 +674,6 @@ async def musicfa_api(action, params=None):
     except Exception as e:
         return {"error": f"خطا در ارتباط با API: {str(e)}"}
 
-async def get_shython_joke(joke_type):
-    """
-    دریافت جوک از API شایتون
-    انواع جوک: dght_krdn, etrf_mknm, random
-    """
-    base_url = "https://shython-api.shayan-heidari.ir/joke"
-    url = f"{base_url}/{joke_type}"
-    
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data.get('text', 'جوک دریافت شد')
-                else:
-                    return "خطا در دریافت جوک"
-    except Exception as e:
-        return f"خطا در ارتباط با API: {str(e)}"
 
 
 @bot.on_message_updates(filters.text)
@@ -553,31 +835,116 @@ async def updates(update: Update ):
                 if current_time - last_message_time > 60:
                     user_spam_count[key] = 0
         
-        if text == "دقت کردین":
-            joke = await get_shython_joke('dght_krdn')
-            await update.reply(f"😂 دقت کردین:\n{joke}")
-        
-        elif text == "اعتراف میکنم":
-            joke = await get_shython_joke('etrf_mknm')
-            await update.reply(f"😅 اعتراف میکنم:\n{joke}")
-        
-        elif text == "جوک تصادفی":
-            joke = await get_shython_joke('random')
-            await update.reply(f"🎲 جوک تصادفی:\n{joke}")
-        
-        elif text == "جوک" or text == "joke":
-            # انتخاب تصادفی بین انواع جوک
-            joke_types = ['dght_krdn', 'etrf_mknm', 'random']
-            selected_type = ch(joke_types)
-            
-            joke = await get_shython_joke(selected_type)
-            
-            if selected_type == 'dght_krdn':
-                await update.reply(f"😂 دقت کردین:\n{joke}")
-            elif selected_type == 'etrf_mknm':
-                await update.reply(f"😅 اعتراف میکنم:\n{joke}")
+        # دستور عضویت ربات در کانال یا گروه از طریق لینک (مخصوص special_admin)
+# دستور عضویت ربات در کانال یا گروه از طریق لینک (مخصوص special_admin)
+        if text.startswith("عضو شو ") and special_admin:
+            link_or_id = text.replace("عضو شو ", "", 1).strip()
+            if link_or_id:
+                try:
+                    # ارسال پیام در حال پردازش
+                    status_msg = await update.reply("⏳ در حال تلاش برای عضویت...")
+                    
+                    # استخراج هش یا آیدی از لینک روبیکا
+                    if "rubika.ir/joing/" in link_or_id:
+                        link_or_id = link_or_id.split("joing/")[-1]
+                    elif "rubika.ir/" in link_or_id:
+                        link_or_id = link_or_id.split("rubika.ir/")[-1]
+                    
+                    # استفاده از متد اصلی rubpy برای عضویت
+                    result = await bot.join_chat(link_or_id)
+                    
+                    # ویرایش پیام وضعیت به موفقیت‌آمیز
+                    await bot.edit_message(
+                        object_guid=status_msg.object_guid,
+                        message_id=status_msg.message_id,
+                        text="✅ با موفقیت عضو شدم!"
+                    )
+                except Exception as e:
+                    # نمایش خطا در صورت بروز مشکل
+                    await bot.edit_message(
+                        object_guid=status_msg.object_guid,
+                        message_id=status_msg.message_id,
+                        text=f"❌ خطا در عضویت!\nجزئیات: {str(e)}"
+                    )
             else:
-                await update.reply(f"🎲 جوک تصادفی:\n{joke}")
+                await update.reply("⚠️ لطفاً لینک یا آیدی مورد نظر را وارد کنید.\nمثال: `عضو شو https://rubika.ir/joing/...`")
+        # دستور لفت دادن ربات از کانال یا گروه (مخصوص special_admin)
+        # if text.startswith("لفت بده ") and special_admin:
+        #     link_or_id = text.replace("لفت بده ", "", 1).strip()
+        #     if link_or_id:
+        #         try:
+        #             status_msg = await update.reply("⏳ در حال خروج از گروه/کانال...")
+                    
+        #             # استخراج آیدی یا هش از لینک
+        #             if "rubika.ir/joing/" in link_or_id:
+        #                 link_or_id = link_or_id.split("joing/")[-1]
+        #             elif "rubika.ir/" in link_or_id:
+        #                 link_or_id = link_or_id.split("rubika.ir/")[-1]
+        #             print(link_or_id)
+        #             # لفت دادن با متد leave_chat
+        #             await bot.leave_chat(link_or_id)
+                    
+        #             await bot.edit_message(
+        #                 object_guid=status_msg.object_guid,
+        #                 message_id=status_msg.message_id,
+        #                 text="👋 با موفقیت خارج شدم!"
+        #             )
+        #         except Exception as e:
+        #             await bot.edit_message(
+        #                 object_guid=status_msg.object_guid,
+        #                 message_id=status_msg.message_id,
+        #                 text=f"❌ خطایی رخ داد یا ربات در این چت عضو نیست.\nجزئیات: {str(e)}"
+        #             )
+
+#=====================================================================================================================================
+
+        # ================== بخش کوییز (Quiz) ==================
+        # این بخش را در انتهای فایل main.py و قبل از bot.run() قرار دهید.
+        # همچنین داخل تابع updates (در قسمت دستورات بازی) دستورات کوییز را اضافه کنید.
+
+        # --- دیکشنری برای ذخیره وضعیت کوییز فعال هر کاربر ---
+        active_quizzes = {}  # کلید: f"{user_guid}_{chat_guid}"  مقدار: {'current':0, 'score':0, 'total':len(quiz_questions), 'asked':[]}
+
+        # --- جدول امتیازات کوییز در دیتابیس ---
+      
+
+      
+
+        # --- در داخل تابع updates (در بخش دستورات بازی) این خطوط را اضافه کنید ---
+        # (در قسمتی که دستورات بازی مثل "حدس عدد" و "فال" وجود دارد)
+
+        
+        
+
+                # ---- بخش کوییز ----
+        if text == "کوییز" or text == "شروع کوییز":
+            await start_quiz(user_guid, chat_guid, update)
+        elif text.startswith("پاسخ "):
+            parts = text.split()
+            if len(parts) == 2 and parts[1].isdigit():
+                answer_num = int(parts[1])
+                if 1 <= answer_num <= 4:
+                    await process_answer(user_guid, chat_guid, update, answer_num)
+                else:
+                    await update.reply("❗ شماره پاسخ باید بین 1 تا 4 باشد.")
+            else:
+                await update.reply("❗ فرمت صحیح: پاسخ 1 (یا 2، 3، 4)")
+        elif text == "امتیاز کوییز":
+            await show_quiz_score(user_guid, chat_guid, update)
+        elif text == "جدول کوییز":
+            await show_quiz_leaderboard(chat_guid, update)
+                # ---------------------------------
+
+        
+
+        # ================== پایان بخش کوییز ==================
+
+
+
+
+
+#=====================================================================================================================================
+
         if update.reply_message_id and text == "ادمین کن" and( special_admin or admin_or_not):
             target = await update.get_reply_author(update.object_guid, update.message.reply_to_message_id)
             target_guid = target.user.user_guid

@@ -2402,3 +2402,4 @@ async def updates(update: Update ):
         await update.reply(ch(all_challenges))
 
 bot.run()
+# ------------------ پایان کد اصلی ربات ------------------
